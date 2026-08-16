@@ -141,13 +141,13 @@ export function validateExportEnvelope(data: unknown): SnapshotExportEnvelope {
   if (!data || typeof data !== 'object') throw new Error('Invalid file: not a JSON object')
   const obj = data as Record<string, unknown>
   if (obj.type !== 'comfyui-desktop-2-snapshot')
-    throw new Error('Invalid file: not a Comfy Desktop snapshot export')
+    throw new Error('Invalid file: not an FR ComfyUI Control Center compatible snapshot export')
   if (obj.version !== 1 && obj.version !== 2) {
     // A higher integer version means the file came from a newer Comfy Desktop,
     // so updating the app is the likely fix. Anything else is just malformed.
     if (typeof obj.version === 'number' && Number.isInteger(obj.version) && obj.version > 2)
       throw new Error(
-        `Unsupported snapshot version: ${obj.version}. This file was created by a newer version of Comfy Desktop; updating the app will likely allow importing it.`
+        `Unsupported snapshot version: ${obj.version}. This file was created by a newer compatible control center; updating FR ComfyUI Control Center will likely allow importing it.`
       )
     throw new Error(`Unsupported snapshot version: ${obj.version}`)
   }

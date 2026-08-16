@@ -24,6 +24,7 @@
  */
 
 import { datadogRum, type RumBeforeSend } from '@datadog/browser-rum'
+import { FR_TELEMETRY_CHANNEL_CONFIGURED } from '../../../shared/frProduct'
 import { normalizeRumErrorEvent } from './datadogPathNormalization'
 import {
   TELEMETRY_ACTION_EVENT_NAME,
@@ -95,6 +96,7 @@ const datadogEnv = (import.meta.env.VITE_DATADOG_RUM_ENV || 'prod-v2').trim()
 const datadogVersion = (import.meta.env.VITE_DATADOG_RUM_VERSION || '').trim()
 
 const isDatadogConfigured =
+  FR_TELEMETRY_CHANNEL_CONFIGURED &&
   !isFlagDisabled(import.meta.env.VITE_DATADOG_RUM_ENABLED) &&
   datadogClientToken.length > 0 &&
   datadogApplicationId.length > 0

@@ -130,7 +130,7 @@ async function disableHardwareAccelerationFromDesktopSettings(ctx: AppContext): 
     )
   ).toBe('true')
   expect(await popup.allText('.settings-v2-field-description')).toContain(
-    'Uses the GPU to render Comfy Desktop. Restart Comfy Desktop for changes to take effect.'
+    'Uses the GPU to render FR ComfyUI Control Center. Restart FR ComfyUI Control Center for changes to take effect.'
   )
   expect(await popup.click(selector)).toBe(true)
   await popup.waitFor(

@@ -95,8 +95,17 @@ export function spawnCommand(
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true
     })
+    let abortFallback: NodeJS.Timeout | undefined
     const onAbort = (): void => {
       killProcTree(proc)
+      // taskkill is intentionally fire-and-forget and can be delayed by a
+      // saturated Windows runner. Guarantee the direct child cannot keep this
+      // promise open forever; taskkill still gets the first chance to remove
+      // descendants before the bounded fallback terminates the parent.
+      abortFallback = setTimeout(() => {
+        if (proc.exitCode === null && proc.signalCode === null) proc.kill('SIGKILL')
+      }, 1_500)
+      abortFallback.unref()
     }
     signal?.addEventListener('abort', onAbort, { once: true })
     if (signal?.aborted) onAbort()
@@ -114,11 +123,13 @@ export function spawnCommand(
       onStderr?.(text)
     })
     proc.on('error', (err) => {
+      if (abortFallback) clearTimeout(abortFallback)
       signal?.removeEventListener('abort', onAbort)
       onStderr?.(`Error: ${err.message}\n`)
       resolve({ code: 1, stdout, stderr })
     })
     proc.on('close', (code) => {
+      if (abortFallback) clearTimeout(abortFallback)
       signal?.removeEventListener('abort', onAbort)
       resolve({ code: code ?? 1, stdout, stderr })
     })

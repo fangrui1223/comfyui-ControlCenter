@@ -11,8 +11,9 @@ import { Search } from 'lucide-vue-next'
 import ContextMenu from '../components/ContextMenu.vue'
 import BrandBackground from '../components/BrandBackground.vue'
 import BaseInput from '../components/ui/BaseInput.vue'
-import ComfyWordmark from '../components/icons/ComfyWordmark.vue'
+import FrControlCenterWordmark from '../components/icons/FrControlCenterWordmark.vue'
 import ChooserFamilyGrid from './chooser/ChooserFamilyGrid.vue'
+import FrEnvironmentProfiles from './chooser/FrEnvironmentProfiles.vue'
 import DevPlatformAccountChip from './devplatform/DevPlatformAccountChip.vue'
 import { distEntry, installEntry, type ChooserGridEntry } from './chooser/chooserGridEntry'
 import { isDistributionInstall } from '../devplatform/distributionState'
@@ -443,6 +444,8 @@ const gridHandlers = {
   'open-kebab-menu': openKebabMenu,
   'trigger-action': (action: 'update' | 'migrate', inst: Installation) =>
     triggerAction(action, inst),
+  manage: (inst: Installation, tab: 'status' | 'update' | 'snapshots') =>
+    openManage(inst, { initialTab: tab }),
   'view-error': viewError,
   'view-danger': viewDanger,
   'dist-select': handleDistributionActivate,
@@ -460,7 +463,7 @@ const gridHandlers = {
         <DevPlatformAccountChip />
       </div>
 
-      <ComfyWordmark class="chooser-wordmark" aria-hidden="true" />
+      <FrControlCenterWordmark class="chooser-wordmark" aria-hidden="true" />
       <div class="chooser-search">
         <BaseInput
           v-model="searchQuery"
@@ -470,6 +473,8 @@ const gridHandlers = {
           <template #leading><Search :size="16" /></template>
         </BaseInput>
       </div>
+
+      <FrEnvironmentProfiles />
 
       <div
         v-if="installationStore.loading && installationStore.installations.length === 0"
@@ -602,6 +607,7 @@ const gridHandlers = {
     minmax(0, 1fr)
     auto
     auto
+    auto
     minmax(0, auto)
     minmax(0, 1fr);
   grid-template-columns: minmax(0, 1fr);
@@ -628,7 +634,7 @@ const gridHandlers = {
  * bottom spacer row so it costs the centered cluster no layout; on a short
  * window the spacer collapses and this caption is the first thing to go. */
 .chooser-dist-note {
-  grid-row: 5;
+  grid-row: 6;
   align-self: start;
   margin: 0;
   padding-top: 4px;
@@ -660,7 +666,7 @@ const gridHandlers = {
   display: block;
   width: clamp(120px, 8vw, 180px);
   height: auto;
-  aspect-ratio: 173 / 48;
+  aspect-ratio: 360 / 64;
   color: var(--comfy-yellow);
   flex-shrink: 0;
   anchor-name: --brand-beam-target;
@@ -689,7 +695,7 @@ const gridHandlers = {
 
 .chooser-loading,
 .chooser-empty {
-  grid-row: 4;
+  grid-row: 5;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -700,7 +706,7 @@ const gridHandlers = {
 /* The scroll viewport both shelves live in — column, scroll and fade only;
  * tile layout and the FLIP belong to `ChooserFamilyGrid`. */
 .chooser-shelves {
-  grid-row: 4;
+  grid-row: 5;
   width: 100%;
   /* Content box must hold exactly 4 tracks (4 × 280 + 3 × 16 = 1168px), so the
    * side padding sits OUTSIDE the cap — inside it, `auto-fit` drops to 3

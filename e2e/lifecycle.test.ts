@@ -313,19 +313,29 @@ test.beforeAll(async () => {
  *  never registered. */
 const _runCreatedInstallPaths = new Set<string>()
 
-/** The isolated profile's installations.json, or null on macOS where the
- *  harness cannot isolate userData (Application Support ignores HOME) and
- *  the store may list real installs that must never be swept. Mirrors
+/** The isolated profile's installations.json. Mirrors
  *  `dataDir()` in src/main/lib/paths.ts under the harness's env overrides
  *  (APPDATA / XDG_DATA_HOME redirected into homeDir). */
 function isolatedInstallationsStorePath(homeDir: string): string | null {
   if (process.platform === 'win32') {
-    return path.join(homeDir, 'AppData', 'Roaming', 'comfyui-desktop-2', 'installations.json')
+    return path.join(
+      homeDir,
+      'AppData',
+      'Roaming',
+      'FR-ComfyUI-ControlCenter',
+      'installations.json'
+    )
   }
   if (process.platform === 'linux') {
-    return path.join(homeDir, '.local', 'share', 'comfyui-desktop-2', 'installations.json')
+    return path.join(homeDir, '.local', 'share', 'fr-comfyui-control-center', 'installations.json')
   }
-  return null
+  return path.join(
+    homeDir,
+    'Library',
+    'Application Support',
+    'FR-ComfyUI-ControlCenter',
+    'installations.json'
+  )
 }
 
 test.afterAll(async () => {

@@ -95,7 +95,7 @@ describe('buildSettingsSections', () => {
         type: 'boolean',
         value: true,
         description:
-          'Uses the GPU to render Comfy Desktop. Restart Comfy Desktop for changes to take effect.'
+          'Uses the GPU to render FR ComfyUI Control Center. Restart FR ComfyUI Control Center for changes to take effect.'
       })
     )
     expect(advancedFields.at(-1)?.id).toBe('hardwareAcceleration')

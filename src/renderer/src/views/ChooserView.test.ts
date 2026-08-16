@@ -98,6 +98,9 @@ interface MockApi {
   comfybuilder: Record<string, ReturnType<typeof vi.fn>>
   getCloudFreeRunsEnabled: ReturnType<typeof vi.fn>
   getCloudUserTier: ReturnType<typeof vi.fn>
+  getFrEnvironmentProfiles: ReturnType<typeof vi.fn>
+  onFrEnvironmentProfilesChanged: ReturnType<typeof vi.fn>
+  openInstancePicker: ReturnType<typeof vi.fn>
 }
 
 function installMockApi(initial: Installation[]): MockApi {
@@ -120,7 +123,10 @@ function installMockApi(initial: Installation[]): MockApi {
       installDistribution: vi.fn()
     },
     getCloudFreeRunsEnabled: vi.fn().mockResolvedValue(false),
-    getCloudUserTier: vi.fn().mockResolvedValue('unknown')
+    getCloudUserTier: vi.fn().mockResolvedValue('unknown'),
+    getFrEnvironmentProfiles: vi.fn().mockResolvedValue([]),
+    onFrEnvironmentProfilesChanged: vi.fn(() => () => {}),
+    openInstancePicker: vi.fn()
   }
   ;(window as unknown as { api: MockApi }).api = api
   return api
@@ -279,6 +285,35 @@ describe('ChooserView', () => {
     const events = wrapper.emitted('pick')
     expect(events).toBeDefined()
     expect((events![0]![0] as Installation).id).toBe('a')
+  })
+
+  it('routes update, repair, and rollback quick actions to their management tabs', async () => {
+    const api = installMockApi([makeInstall({ id: 'quick', name: 'Quick Actions' })])
+    const wrapper = mountChooser()
+    await flushPromises()
+    const tile = wrapper.find('[data-testid="dashboard-tile-quick"]')
+    const buttons = tile.findAll('.chooser-tile-quick-actions button')
+
+    await buttons[1]!.trigger('click')
+    await buttons[2]!.trigger('click')
+    await buttons[3]!.trigger('click')
+
+    expect(api.openInstancePicker).toHaveBeenNthCalledWith(1, {
+      installationId: 'quick',
+      initialTab: 'update',
+      autoAction: null
+    })
+    expect(api.openInstancePicker).toHaveBeenNthCalledWith(2, {
+      installationId: 'quick',
+      initialTab: 'status',
+      autoAction: null
+    })
+    expect(api.openInstancePicker).toHaveBeenNthCalledWith(3, {
+      installationId: 'quick',
+      initialTab: 'snapshots',
+      autoAction: null
+    })
+    expect(wrapper.emitted('pick')).toBeUndefined()
   })
 
   it('renders no lifecycle CTA cluster on a tile — the instance window owns lifecycle', async () => {

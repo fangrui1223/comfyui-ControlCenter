@@ -1,5 +1,6 @@
 import * as ipc from '../lib/ipc'
 import { getAppVersion } from '../lib/ipc'
+import { FR_PRODUCT_NAME } from '../../shared/frProduct'
 import { attachSessionDownloadHandler } from '../lib/comfyDownloadManager'
 import { getModelDownloadContentScript } from '../lib/comfyContentScript'
 import { getComfyTerminalContentScript } from '../lib/comfyTerminalContentScript'
@@ -179,7 +180,7 @@ export function attachInstall(entry: ComfyWindowEntry, opts: AttachInstallOpts):
   const refreshOsWindowTitle = (): void => {
     if (comfyWindow.isDestroyed()) return
     const suffix = currentPageTitle ? ` — ${currentPageTitle}` : ''
-    comfyWindow.setTitle(`${currentInstallName}${suffix} — Comfy Desktop v${APP_VERSION}`)
+    comfyWindow.setTitle(`${currentInstallName}${suffix} — ${FR_PRODUCT_NAME} v${APP_VERSION}`)
   }
   refreshOsWindowTitle()
 

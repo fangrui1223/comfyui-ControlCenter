@@ -17,6 +17,7 @@ import {
   installCloseNeedsConfirm
 } from './createHostWindow'
 import type { CloseWindowChoice } from './createHostWindow'
+import { FR_PRODUCT_NAME } from '../../shared/frProduct'
 
 /**
  * Host windows whose `close` should skip the panel-renderer consult and tear down
@@ -271,8 +272,8 @@ export async function confirmCloseInstanceWindow(
 ): Promise<CloseWindowChoice> {
   const message = isLastWindow
     ? stopsLocalComfy
-      ? 'Close this window? This stops ComfyUI and quits Comfy Desktop.'
-      : 'Close this window? This quits Comfy Desktop.'
+      ? `Close this window? This stops ComfyUI and quits ${FR_PRODUCT_NAME}.`
+      : `Close this window? This quits ${FR_PRODUCT_NAME}.`
     : stopsLocalComfy
       ? 'Close this window? This stops the running ComfyUI instance.'
       : 'Close this window?'

@@ -9,6 +9,8 @@
  */
 
 import { test, expect, type ElectronApplication } from '@playwright/test'
+import { existsSync } from 'node:fs'
+import path from 'node:path'
 import { launchApp, type AppContext } from './launchApp'
 import {
   clickNewInstallTile,
@@ -45,9 +47,39 @@ test('chooser body renders on cold start @windows @macos @linux', async () => {
   expect(await ctx.panel.exists('.chooser-tile-new')).toBe(true)
 })
 
+test('FR environment cards start unregistered and do not claim suggested paths @windows @macos @linux', async () => {
+  expect(await ctx.panel.count('.fr-environment-card')).toBe(3)
+  expect(await ctx.panel.allText('.fr-environment-card__mode')).toEqual([
+    'Not registered',
+    'Not registered',
+    'Not registered',
+  ])
+  expect(await ctx.panel.allText('.fr-environment-card__state')).toEqual([
+    'Suggested path only — not checked',
+    'Suggested path only — not checked',
+    'Suggested path only — not checked',
+  ])
+})
+
+test('FR settings use the isolated profile and never seed the upstream Desktop profile @windows @macos @linux', async () => {
+  const frSettings = process.platform === 'win32'
+    ? path.join(ctx.homeDir, 'AppData', 'Roaming', 'FR-ComfyUI-ControlCenter', 'settings.json')
+    : process.platform === 'darwin'
+      ? path.join(ctx.homeDir, 'Library', 'Application Support', 'FR-ComfyUI-ControlCenter', 'settings.json')
+      : path.join(ctx.homeDir, '.config', 'fr-comfyui-control-center', 'settings.json')
+  const upstreamProfile = process.platform === 'win32'
+    ? path.join(ctx.homeDir, 'AppData', 'Roaming', 'comfyui-desktop-2')
+    : process.platform === 'darwin'
+      ? path.join(ctx.homeDir, 'Library', 'Application Support', 'comfyui-desktop-2')
+      : path.join(ctx.homeDir, '.config', 'comfyui-desktop-2')
+
+  expect(existsSync(frSettings)).toBe(true)
+  expect(existsSync(upstreamProfile)).toBe(false)
+})
+
 test('title bar shows install-less pill on chooser host @windows @macos @linux', async () => {
   expect(await ctx.titleBar.exists('.title-install-pill.is-install-less')).toBe(true)
-  expect(await ctx.titleBar.textOf('.title-install-name')).toMatch(/Comfy Desktop/i)
+  expect(await ctx.titleBar.textOf('.title-install-name')).toMatch(/FR ComfyUI Control Center/i)
 })
 
 test('clicking New Install tile opens the new-install takeover @windows @macos @linux', async () => {

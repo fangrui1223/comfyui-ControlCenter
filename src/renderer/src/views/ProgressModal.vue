@@ -14,7 +14,7 @@ import { useTerminalScroll } from '../composables/useTerminalScroll'
 import { useProgressStore } from '../stores/progressStore'
 import type { ActionResult, KillResult, ShowProgressOpts } from '../types/ipc'
 import BrandTakeoverLayout from '../components/BrandTakeoverLayout.vue'
-import ComfyWordmark from '../components/icons/ComfyWordmark.vue'
+import FrControlCenterWordmark from '../components/icons/FrControlCenterWordmark.vue'
 import BrandProgressGlyph from '../components/icons/BrandProgressGlyph.vue'
 import BaseAccordion from '../components/ui/BaseAccordion.vue'
 import BaseCopyButton from '../components/ui/BaseCopyButton.vue'
@@ -544,7 +544,7 @@ defineExpose({ startOperation, showOperation })
              back the yellow glyph so stepper text stays legible. -->
         <div class="brand-progress__plate">
           <div class="brand-progress__core">
-            <ComfyWordmark class="brand-progress__wordmark" />
+            <FrControlCenterWordmark class="brand-progress__wordmark" />
 
             <template v-if="!currentOp.finished || isChainHandoff">
               <div class="brand-progress__bar-wrap">

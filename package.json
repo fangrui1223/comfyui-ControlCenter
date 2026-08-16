@@ -1,15 +1,10 @@
 {
-  "name": "comfyui-desktop-2",
+  "name": "fr-comfyui-control-center",
   "version": "1.0.39",
-  "description": "Comfy Desktop",
-  "author": {
-    "name": "Comfy Org",
-    "email": "support@comfy.org",
-    "url": "https://www.comfy.org"
-  },
-  "repository": "github:Comfy-Org/Comfy-Desktop",
+  "description": "FR ComfyUI Control Center",
+  "author": "FR AI",
   "license": "SEE LICENSE IN LICENSE",
-  "homepage": "https://github.com/Comfy-Org/Comfy-Desktop",
+  "x-upstream": "github:Comfy-Org/Comfy-Desktop",
   "engines": {
     "node": ">=22",
     "pnpm": ">=10"

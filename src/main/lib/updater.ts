@@ -130,12 +130,25 @@ export function notifyAutoUpdateChanged(): void {
   _setUpdateState({ ..._appUpdateState, autoUpdate: refreshed })
 }
 
-function isSystemPackageInstall(): boolean {
-  if (process.platform !== 'linux' || !app.isPackaged) return false
-  if (process.env.APPIMAGE) return false
+export function isSystemPackageInstallFor(options: {
+  platform: NodeJS.Platform
+  isPackaged: boolean
+  appImage?: string
+  executablePath: string
+}): boolean {
+  if (options.platform !== 'linux' || !options.isPackaged) return false
+  if (options.appImage) return false
   // .deb installs place the app under /opt/ or /usr/; check the executable path
-  const appPath = app.getPath('exe')
-  return appPath.startsWith('/opt/') || appPath.startsWith('/usr/')
+  return options.executablePath.startsWith('/opt/') || options.executablePath.startsWith('/usr/')
+}
+
+function isSystemPackageInstall(): boolean {
+  return isSystemPackageInstallFor({
+    platform: process.platform,
+    isPackaged: app.isPackaged,
+    appImage: process.env.APPIMAGE,
+    executablePath: app.getPath('exe')
+  })
 }
 
 /**
@@ -1038,4 +1051,25 @@ export function register(): void {
   }
   setTimeout(runAutoCheck, 2000)
   setInterval(runAutoCheck, 10 * 60 * 1000)
+}
+
+/**
+ * Register a fail-closed update surface for forks without a user-owned release
+ * feed.  This prevents the FR application identity from querying or installing
+ * Comfy-Org Desktop packages while keeping the settings UI responsive.
+ */
+export function registerUnavailableChannel(): void {
+  suppressInstallOnQuit()
+
+  ipcMain.handle('check-for-update', async () => ({
+    available: false,
+    error: 'FR application update channel is not configured'
+  }))
+  ipcMain.handle('download-update', async () => {})
+  ipcMain.handle('install-update', () => {})
+  ipcMain.handle('get-update-capabilities', () => ({
+    canAutoUpdate: false,
+    systemManaged: false
+  }))
+  ipcMain.handle('get-app-update-state', () => getCurrentUpdateState())
 }

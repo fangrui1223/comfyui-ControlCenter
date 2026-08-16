@@ -13,7 +13,7 @@ const props = withDefaults(
   }>(),
   {
     loading: false,
-    label: 'Comfy Desktop'
+    label: 'Upstream Comfy Desktop'
   }
 )
 

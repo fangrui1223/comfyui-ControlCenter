@@ -18,6 +18,8 @@ import { globalSettingsEvents } from '../globalSettingsEvents'
 import { recordIpcInvocation } from '../e2eOverrides'
 import type { SettingsSection } from '../../../types/ipc'
 import { AUTO_LAUNCH_LAST, AUTO_LAUNCH_NONE } from '../../settings'
+import { listFrEnvironmentProfiles, saveFrEnvironmentProfile } from '../frEnvironmentProfiles'
+import type { SaveFrEnvironmentProfileInput } from '../../../shared/frEnvironmentProfiles'
 
 // Build the App + sources + About settings sections. Shared so the Global
 // Settings popup snapshot can call it without going through IPC.
@@ -310,6 +312,12 @@ export function registerSettingsHandlers(): void {
   ipcMain.handle('get-settings-sections', () => buildSettingsSections())
   ipcMain.handle('get-models-sections', () => buildModelsPayload())
   ipcMain.handle('get-media-sections', () => buildMediaSections())
+  ipcMain.handle('fr-environments:list', () => listFrEnvironmentProfiles())
+  ipcMain.handle('fr-environments:save', (_event, input: SaveFrEnvironmentProfileInput) => {
+    const profiles = saveFrEnvironmentProfile(input)
+    _broadcastToRenderer('fr-environments-changed', profiles)
+    return profiles
+  })
 
   ipcMain.handle('set-setting', (_event, key: string, value: unknown) => {
     recordIpcInvocation('set-setting', { key, value })

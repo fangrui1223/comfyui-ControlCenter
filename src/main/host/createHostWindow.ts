@@ -59,6 +59,7 @@ import {
   unregisterHostEntry
 } from './registry'
 import type { ComfyWindowEntry, ComfyPanelKey } from './registry'
+import { FR_PRODUCT_NAME } from '../../shared/frProduct'
 
 /** Default size for a freshly-spawned host window when an existing
  *  host of the same identity is already open. Matches the
@@ -153,11 +154,11 @@ export function shouldBailAfterCloseChoice(
 
 /** Constants reused by both host modes. Defined here because they only
  *  matter in the context of host-window construction. */
-const APP_ICON = path.join(__dirname, '..', '..', 'assets', 'Comfy_Logo_x256.png')
+const APP_ICON = path.join(__dirname, '..', '..', 'assets', 'FR_ControlCenter_x256.png')
 const APP_VERSION = getAppVersion()
 
 /** Center pill text for install-less host windows (chooser/dashboard). */
-export const CHOOSER_HOST_TITLE_TEXT = 'Comfy Desktop'
+export const CHOOSER_HOST_TITLE_TEXT = FR_PRODUCT_NAME
 /** OS-level window title for install-less host windows. */
 export const CHOOSER_HOST_WINDOW_TITLE = `${CHOOSER_HOST_TITLE_TEXT} — v${APP_VERSION}`
 
@@ -230,7 +231,7 @@ const PASSKEY_BANNER_JS =
   `(function(){` +
   `if(document.getElementById('comfy-passkey-banner'))return;` +
   `const b=document.createElement('div');b.id='comfy-passkey-banner';` +
-  `b.textContent='\\u24d8 Passkeys are not supported in Comfy Desktop on macOS. Please use your password or verification code to sign in.';` +
+  `b.textContent='\\u24d8 Passkeys are not supported in FR ComfyUI Control Center on macOS. Please use your password or verification code to sign in.';` +
   `document.body.prepend(b);` +
   `document.body.style.paddingTop=(b.offsetHeight)+'px';` +
   `new MutationObserver(function(){` +

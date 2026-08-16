@@ -7,6 +7,7 @@ let tmpRoot = ''
 let homePath = ''
 let userDataPath = ''
 let programDataPath = ''
+let localAppDataPath = ''
 let oemRoot = ''
 
 async function loadModules() {
@@ -32,12 +33,11 @@ beforeEach(() => {
   homePath = path.join(tmpRoot, 'home')
   userDataPath = path.join(tmpRoot, 'user-data')
   programDataPath = path.join(tmpRoot, 'program-data')
-  oemRoot = path.join(programDataPath, 'Comfy Desktop', 'OEM')
+  localAppDataPath = path.join(tmpRoot, 'local-app-data')
+  oemRoot = path.join(programDataPath, 'FR ComfyUI Control Center', 'OEM')
 
   fs.mkdirSync(homePath, { recursive: true })
-  // Home-root footprint → existing install, so Windows large-data defaults use
-  // the home layout these tests assert (a clean machine would default to
-  // %LOCALAPPDATA%\Comfy-Desktop).
+  // An upstream home footprint must not influence FR's isolated defaults.
   fs.mkdirSync(path.join(homePath, 'ComfyUI-Installs'), { recursive: true })
   fs.mkdirSync(userDataPath, { recursive: true })
   fs.mkdirSync(programDataPath, { recursive: true })
@@ -55,7 +55,7 @@ beforeEach(() => {
   vi.stubGlobal('process', {
     ...process,
     platform: 'win32',
-    env: { ...process.env, ProgramData: programDataPath }
+    env: { ...process.env, ProgramData: programDataPath, LOCALAPPDATA: localAppDataPath }
   })
 })
 
@@ -94,7 +94,7 @@ describe('syncOemSeed', () => {
     await syncOemSeed()
 
     expect(settings.get('modelsDirs')).toEqual([
-      path.join(homePath, 'ComfyUI-Shared', 'models'),
+      path.join(localAppDataPath, 'FR-ComfyUI-ControlCenter', 'ComfyUI-Shared', 'models'),
       path.join(oemRoot, 'models')
     ])
     expect(
@@ -150,7 +150,9 @@ describe('syncOemSeed', () => {
     fs.rmSync(path.join(oemRoot, 'manifest.json'))
     await syncOemSeed()
 
-    expect(settings.get('modelsDirs')).toEqual([path.join(homePath, 'ComfyUI-Shared', 'models')])
+    expect(settings.get('modelsDirs')).toEqual([
+      path.join(localAppDataPath, 'FR-ComfyUI-ControlCenter', 'ComfyUI-Shared', 'models')
+    ])
   })
 
   it('rejects manifest paths outside the OEM root', async () => {
@@ -178,7 +180,9 @@ describe('syncOemSeed', () => {
 
     await syncOemSeed()
 
-    expect(settings.get('modelsDirs')).toEqual([path.join(homePath, 'ComfyUI-Shared', 'models')])
+    expect(settings.get('modelsDirs')).toEqual([
+      path.join(localAppDataPath, 'FR-ComfyUI-ControlCenter', 'ComfyUI-Shared', 'models')
+    ])
     expect(
       fs.existsSync(path.join(installPath, 'ComfyUI', 'user', 'default', 'workflows', 'seed.json'))
     ).toBe(false)

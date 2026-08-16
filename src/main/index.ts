@@ -4,6 +4,7 @@ import type { Tray } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { normaliseFirstUseMode } from '../shared/firstUseMode'
+import { FR_APP_UPDATE_CHANNEL_CONFIGURED, FR_PRODUCT_NAME } from '../shared/frProduct'
 import { execFile } from 'child_process'
 import type { ChildProcess } from 'child_process'
 import todesktop from '@todesktop/runtime'
@@ -176,7 +177,9 @@ if (settings.get('hardwareAcceleration') === false) {
   app.disableHardwareAcceleration()
 }
 
-todesktop.init({ autoUpdater: false })
+if (FR_APP_UPDATE_CHANNEL_CONFIGURED) {
+  todesktop.init({ autoUpdater: false })
+}
 
 const APP_VERSION = getAppVersion()
 
@@ -691,7 +694,7 @@ function onLaunch({
   const initialSourceCategory = sourceMap[installation.sourceId]?.category ?? null
 
   const { entry } = createHostWindow({
-    windowTitle: `${installation.name} — Comfy Desktop v${APP_VERSION}`,
+    windowTitle: `${installation.name} — ${FR_PRODUCT_NAME} v${APP_VERSION}`,
     boundsKey: installationId,
     initialTheme: { bg: COMFY_BG, text: '#dddddd' },
     titleBarOverlay:
@@ -2172,7 +2175,11 @@ if (app.isPackaged && !app.requestSingleInstanceLock()) {
     initializeModelDownloads().catch((err) => {
       console.warn('Model download startup pass failed at app startup:', err)
     })
-    updater.register()
+    if (FR_APP_UPDATE_CHANNEL_CONFIGURED) {
+      updater.register()
+    } else {
+      updater.registerUnavailableChannel()
+    }
     // Forward updater state transitions to every host window's
     // title-bar webContents. Subscribed once at startup; the helper
     // iterates `comfyWindows` so newly-opened windows pick up live
@@ -2196,7 +2203,10 @@ if (app.isPackaged && !app.requestSingleInstanceLock()) {
     // corrupts). When an update is staged we show a brief "Updating…" splash
     // while the bounded check runs; if it commits to installing, the app quits
     // here and the installer relaunches it — so we skip opening the normal UI.
-    const updateSplash = updater.hasPendingStartupUpdate() ? showUpdateInstallSplash() : undefined
+    const updateSplash =
+      FR_APP_UPDATE_CHANNEL_CONFIGURED && updater.hasPendingStartupUpdate()
+        ? showUpdateInstallSplash()
+        : undefined
     // Timestamp the splash so the install can keep it up for a readable minimum
     // (the bounded check usually resolves instantly, which would otherwise flash
     // the splash by before the app quits to install).
@@ -2210,7 +2220,9 @@ if (app.isPackaged && !app.requestSingleInstanceLock()) {
       updateInstallQuitStarted = true
     }
     app.once('before-quit', onUpdateInstallQuit)
-    const installingUpdate = await updater.applyPendingUpdateOnStartup(updateSplashShownAt)
+    const installingUpdate = FR_APP_UPDATE_CHANNEL_CONFIGURED
+      ? await updater.applyPendingUpdateOnStartup(updateSplashShownAt)
+      : false
     if (installingUpdate) {
       // Safety net: a successful install quits the app within a tick (firing
       // before-quit). If that didn't happen the install didn't proceed — recover

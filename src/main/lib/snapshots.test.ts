@@ -122,14 +122,16 @@ describe('validateExportEnvelope', () => {
 
   it('rejects wrong type field', () => {
     expect(() => validateExportEnvelope({ ...makeEnvelope(), type: 'wrong' })).toThrow(
-      'not a Comfy Desktop snapshot export'
+      'not an FR ComfyUI Control Center compatible snapshot export'
     )
   })
 
   it('rejects missing type field', () => {
     const env = makeEnvelope()
     const { type: _, ...rest } = env
-    expect(() => validateExportEnvelope(rest)).toThrow('not a Comfy Desktop snapshot export')
+    expect(() => validateExportEnvelope(rest)).toThrow(
+      'not an FR ComfyUI Control Center compatible snapshot export'
+    )
   })
 
   it('accepts a v1 envelope with v1 snapshots', () => {
@@ -152,7 +154,7 @@ describe('validateExportEnvelope', () => {
     // A higher integer version means the file came from a newer Desktop; the
     // error must point at the likely fix instead of looking like corruption.
     expect(() => validateExportEnvelope({ ...makeEnvelope(), version: 3 })).toThrow(
-      /Unsupported snapshot version: 3.*updating the app/
+      /Unsupported snapshot version: 3.*updating FR ComfyUI Control Center/
     )
   })
 

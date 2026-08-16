@@ -8,7 +8,7 @@ import { useI18n } from 'vue-i18n'
 import { X, Power, ChevronDown } from 'lucide-vue-next'
 import BrandTakeoverLayout from './BrandTakeoverLayout.vue'
 import BrandProgressGlyph from './icons/BrandProgressGlyph.vue'
-import ComfyWordmark from './icons/ComfyWordmark.vue'
+import FrControlCenterWordmark from './icons/FrControlCenterWordmark.vue'
 import BaseAccordion from './ui/BaseAccordion.vue'
 import BaseCopyButton from './ui/BaseCopyButton.vue'
 
@@ -53,7 +53,7 @@ function getLogText(): string {
     <div class="brand-progress">
       <BrandProgressGlyph class="brand-progress__glyph" aria-hidden="true" />
       <div class="brand-progress__stack">
-        <ComfyWordmark class="brand-progress__wordmark" />
+        <FrControlCenterWordmark class="brand-progress__wordmark" />
         <div
           class="brand-progress__banner"
           :class="`brand-progress__banner--${tone}`"

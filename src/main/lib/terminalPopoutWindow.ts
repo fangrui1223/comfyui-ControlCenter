@@ -191,10 +191,10 @@ export async function openTerminalPopout(installationId: string): Promise<void> 
   // Best-effort label using the install's user-facing name; falls back
   // to a generic title when the lookup fails. Lookup is async so the
   // IPC handler awaits this whole call.
-  let label = 'Comfy Terminal'
+  let label = 'FR ComfyUI Terminal'
   try {
     const inst = await installations.get(installationId)
-    if (inst?.name) label = `Comfy Terminal — ${inst.name}`
+    if (inst?.name) label = `FR ComfyUI Terminal — ${inst.name}`
   } catch {
     // installations registry not ready; keep the generic label
   }
@@ -220,7 +220,7 @@ export async function openTerminalPopout(installationId: string): Promise<void> 
   })
 
   const html =
-    `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Comfy Terminal</title>` +
+    `<!DOCTYPE html><html><head><meta charset="utf-8"><title>FR ComfyUI Terminal</title>` +
     `<style>html,body{margin:0;padding:0;height:100%;background:${COMFY_BG};}</style>` +
     `</head><body></body></html>`
   void win.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(html))

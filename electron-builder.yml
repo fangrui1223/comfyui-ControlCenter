@@ -1,5 +1,5 @@
-appId: com.todesktop.241012ess7yxs0e
-productName: Comfy Desktop
+appId: ai.fr.comfyui.controlcenter
+productName: FR ComfyUI Control Center
 directories:
   buildResources: resources
 files:
@@ -21,14 +21,10 @@ asarUnpack:
   - node_modules/7zip-bin/**/*
   - node_modules/node-pty/**/*
 afterPack: ./scripts/afterPack.mjs
-publish:
-  provider: github
-  owner: Comfy-Org
-  repo: Comfy-Desktop
-artifactName: Comfy-Desktop-${version}-${os}-${arch}.${ext}
+artifactName: FR-ComfyUI-ControlCenter-${version}-${os}-${arch}.${ext}
 win:
   target: nsis
-  icon: assets/Comfy_Logo_x256.png
+  icon: assets/FR_ControlCenter_x256.png
   extraResources:
     - from: bootstrap-python/win-x64
       to: bootstrap-python
@@ -48,7 +44,7 @@ mac:
   target:
     - dmg
     - zip
-  icon: assets/Comfy_Logo_mac_x1024.png
+  icon: assets/FR_ControlCenter_mac_x1024.png
   category: public.app-category.developer-tools
   extraResources:
     - from: bootstrap-python/mac-arm64
@@ -56,7 +52,7 @@ mac:
       filter:
         - '**/*'
 dmg:
-  title: Comfy Desktop
+  title: FR ComfyUI Control Center
   # background + background@2x live under resources/ (directories.buildResources).
   background: dmg/background.png
   iconSize: 84
@@ -78,7 +74,7 @@ linux:
   target:
     - AppImage
     - deb
-  icon: assets/Comfy_Logo_x512.png
+  icon: assets/FR_ControlCenter_x512.png
   category: Development
   extraResources:
     - from: resources/apparmor-profile

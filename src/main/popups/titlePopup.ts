@@ -53,6 +53,7 @@ import type { Category, ViewKind } from '../../shared/viewKind'
 import { getTitleTooltipForParent, hideTitleTooltipPopup } from './titleTooltip'
 import { EmbeddedPopupView } from './embeddedPopupView'
 import { recordIpcInvocation } from '../lib/e2eOverrides'
+import { FR_APP_UPDATE_CHANNEL_CONFIGURED } from '../../shared/frProduct'
 
 /**
  * Title-bar dropdown popups (waffle menu, downloads tray). All title-bar
@@ -1540,14 +1541,20 @@ function openTitlePopup(opts: OpenTitlePopupOpts): void {
     entry.pendingConfig = config
   }
 
-  // Show INSTANTLY in the same frame as the click — same as native
-  // apps / VS Code / Cursor. The render-ack handshake used to wait
-  // up to 250ms for Vue to repaint, but cold Vue mount itself takes
-  // ~270ms so the fallback timer was always the floor on first open.
-  // The "stale content flash" the ack was guarding against is a
-  // single frame of the previous open's content (~16ms on a warm
-  // renderer) — invisible in practice. The renderer's own paint
-  // settles within one frame of `set-config` arriving.
+  // The downloads tray must receive its renderer-measured natural height
+  // before it becomes visible. Showing its provisional 396px ceiling first
+  // produces a conspicuous empty-panel flash on a loaded Windows compositor,
+  // and makes the first-open geometry timing-dependent. Its renderer is
+  // pre-warmed, so the normal path is one Vue flush + one animation frame;
+  // the fallback guarantees a renderer fault can never leave it invisible.
+  if (opts.kind === POPUP_KIND.downloads) {
+    entry.view.scheduleShowFallback(250, () => showTitlePopupNow(entry))
+    return
+  }
+
+  // Fixed-geometry popups can show in the click frame. Their bounds do not
+  // depend on a renderer measurement, and a warm repeat-open already returned
+  // through the fast path above.
   showTitlePopupNow(entry)
 }
 
@@ -2158,7 +2165,7 @@ function buildGlobalSettingsSnapshot(
     languageFields,
     generalFields,
     telemetryFields,
-    desktopUpdateFields,
+    desktopUpdateFields: FR_APP_UPDATE_CHANNEL_CONFIGURED ? desktopUpdateFields : [],
     cacheFields: cache,
     advancedFields: advanced,
     sharedDirectoriesFields: shared,
@@ -2174,7 +2181,7 @@ function buildGlobalSettingsSnapshot(
       isDownloading,
       capabilities: {
         systemManaged: false,
-        canSelfUpdate: true
+        canSelfUpdate: FR_APP_UPDATE_CHANNEL_CONFIGURED
       },
       installedVersion: getAppVersion(),
       platform: process.platform,

@@ -341,6 +341,7 @@ onMounted(() => {
             :last-checked-at="snapshot.appUpdate.lastCheckedAt"
             :installed-version="snapshot.appUpdate.installedVersion"
             :system-managed="snapshot.appUpdate.capabilities.systemManaged"
+            :can-self-update="snapshot.appUpdate.capabilities.canSelfUpdate"
             :preference-fields="desktopUpdatePreferenceFields"
             @update-now="handleUpdateNow"
             @check-for-update="handleCheckForUpdate"

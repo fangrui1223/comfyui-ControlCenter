@@ -49,7 +49,7 @@ corepack pnpm run build
 corepack pnpm run build:win
 ```
 
-产物位于 `dist`。官方当前配置生成 x64 NSIS 安装包及 blockmap/update metadata。
+产物位于 `dist`。FR 配置生成 `FR-ComfyUI-ControlCenter-<version>-win-x64.exe`、对应 blockmap 和 `win-unpacked` 目录。未配置 FR 发布渠道时不会发布或上传产物。
 
 electron-builder 的签名工具压缩包包含符号链接。满足以下任一条件即可：
 

@@ -45,7 +45,7 @@ describe('terminalPopoutWindow', () => {
     const url = mocks.window.loadURL.mock.calls[0]?.[0]
     if (!url) throw new Error('Expected terminal popout URL')
     const html = decodeURIComponent(url.slice(url.indexOf(',') + 1))
-    expect(html).toContain('<title>Comfy Terminal</title>')
+    expect(html).toContain('<title>FR ComfyUI Terminal</title>')
     expect(html).not.toContain(name)
     expect(mocks.BrowserWindow).toHaveBeenCalledWith(
       expect.objectContaining({

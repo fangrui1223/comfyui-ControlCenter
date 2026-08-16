@@ -1,10 +1,11 @@
 import { app } from 'electron'
 import path from 'path'
 import fs from 'fs'
+import { FR_PACKAGE_NAME } from '../../shared/frProduct'
 
 const isLinux = process.platform === 'linux'
 
-const APP_NAME = 'comfyui-desktop-2'
+const APP_NAME = FR_PACKAGE_NAME
 
 /**
  * XDG-compliant directory helpers for Linux.
@@ -78,7 +79,7 @@ function selectedInstallDrive(): string | null {
 }
 
 /** Windows system-drive layout for the large data dirs. New installs are
- *  grouped under `%LOCALAPPDATA%\Comfy-Desktop` (the standard per-user,
+ *  grouped under `%LOCALAPPDATA%\FR-ComfyUI-ControlCenter` (the standard per-user,
  *  non-roaming spot for large app data — the home root and roaming AppData are
  *  both poor fits); pre-existing installs keep their original home-root layout
  *  so an upgrade never strands a user's data. */
@@ -102,11 +103,9 @@ function classifyWinSystemDriveMode(): WinSystemDriveMode {
     const mode = (JSON.parse(raw) as { mode?: unknown }).mode
     if (mode === 'legacy-home' || mode === 'local-appdata') return mode
   } catch {}
-  const home = app.getPath('home')
-  const hasLegacyFootprint =
-    fs.existsSync(path.join(home, 'ComfyUI-Installs')) ||
-    fs.existsSync(path.join(home, 'ComfyUI-Shared'))
-  return hasLegacyFootprint ? 'legacy-home' : 'local-appdata'
+  // FR never infers ownership from an upstream Desktop footprint. Existing
+  // environments enter through the explicit read-only / managed profile flow.
+  return 'local-appdata'
 }
 
 function winSystemDriveRoot(): string {
@@ -114,7 +113,7 @@ function winSystemDriveRoot(): string {
   if (cachedWinMode === 'legacy-home') return app.getPath('home')
   const localAppData =
     process.env.LOCALAPPDATA || path.join(app.getPath('home'), 'AppData', 'Local')
-  return path.join(localAppData, 'Comfy-Desktop')
+  return path.join(localAppData, 'FR-ComfyUI-ControlCenter')
 }
 
 /** Persist the resolved Windows system-drive data-root choice once, so a new
@@ -135,20 +134,21 @@ export function persistWinDataRootChoice(): void {
 
 /** Base directory under which ComfyUI's large data dirs (installs, shared
  *  models/input/output, download cache) live by default. On Windows, when the
- *  app was installed to a non-system drive, this is a single `Comfy-Desktop`
+ *  app was installed to a non-system drive, this is a single `FR-ComfyUI-ControlCenter`
  *  folder on that drive so everything stays grouped under one parent instead of
  *  scattering folders at the drive root. On a system-drive Windows install,
- *  new users get `%LOCALAPPDATA%\Comfy-Desktop` while existing users keep home.
+ *  new users get `%LOCALAPPDATA%\FR-ComfyUI-ControlCenter`; existing upstream
+ *  data is never adopted implicitly.
  *  Non-Windows uses the user's home dir. */
 export function defaultDataRoot(): string {
   const drive = selectedInstallDrive()
-  if (drive) return path.join(drive, 'Comfy-Desktop')
+  if (drive) return path.join(drive, 'FR-ComfyUI-ControlCenter')
   if (process.platform === 'win32') return winSystemDriveRoot()
   return app.getPath('home')
 }
 
 /** Default location for the multi-GB download cache. When the large data dirs
- *  are grouped under a `Comfy-Desktop` parent (a redirected drive, or a new
+ *  are grouped under a `FR-ComfyUI-ControlCenter` parent (a redirected drive, or a new
  *  Windows system-drive install), the cache lives there too; otherwise the
  *  platform cache dir (roaming userData on Windows/macOS, XDG cache on Linux). */
 export function defaultDownloadCacheDir(): string {

@@ -5,7 +5,9 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vites
 
 const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'comfyui-desktop-2-settings-'))
 const homePath = path.join(tmpRoot, 'home')
-const userDataPath = path.join(homePath, 'AppData', 'Roaming', 'comfyui-desktop-2')
+const userDataPath = path.join(homePath, 'AppData', 'Roaming', 'FR-ComfyUI-ControlCenter')
+const localAppDataPath = path.join(tmpRoot, 'AppData', 'Local')
+const frDataRoot = path.join(localAppDataPath, 'FR-ComfyUI-ControlCenter')
 const adminHomePath = path.join(tmpRoot, 'Administrator')
 const adminUserDataPath = path.join(adminHomePath, 'AppData', 'Roaming', 'comfyui-desktop-2')
 const xdgConfigHome = path.join(homePath, '.config')
@@ -13,13 +15,13 @@ const xdgCacheHome = path.join(homePath, '.cache')
 const adminXdgCacheHome = path.join(adminHomePath, '.cache')
 const originalXdgConfigHome = process.env.XDG_CONFIG_HOME
 const originalXdgCacheHome = process.env.XDG_CACHE_HOME
+const originalLocalAppData = process.env.LOCALAPPDATA
 
 process.env.XDG_CONFIG_HOME = xdgConfigHome
 process.env.XDG_CACHE_HOME = xdgCacheHome
+process.env.LOCALAPPDATA = localAppDataPath
 fs.mkdirSync(homePath, { recursive: true })
-// A home-root footprint marks this as an existing install, so on Windows the
-// large-data defaults resolve to the home layout these tests assert (a clean
-// machine would instead default to %LOCALAPPDATA%\Comfy-Desktop).
+// Upstream footprints must not influence FR's isolated defaults.
 fs.mkdirSync(path.join(homePath, 'ComfyUI-Installs'), { recursive: true })
 fs.mkdirSync(userDataPath, { recursive: true })
 fs.mkdirSync(adminHomePath, { recursive: true })
@@ -39,17 +41,17 @@ let settings: {
 
 const settingsPath =
   process.platform === 'linux'
-    ? path.join(xdgConfigHome, 'comfyui-desktop-2', 'settings.json')
+    ? path.join(xdgConfigHome, 'fr-comfyui-control-center', 'settings.json')
     : path.join(userDataPath, 'settings.json')
 const expectedCacheDir =
   process.platform === 'linux'
-    ? path.join(xdgCacheHome, 'comfyui-desktop-2', 'download-cache')
-    : path.join(userDataPath, 'download-cache')
+    ? path.join(xdgCacheHome, 'fr-comfyui-control-center', 'download-cache')
+    : path.join(frDataRoot, 'ComfyUI-Cache', 'download-cache')
 const copiedAdminCacheDir =
   process.platform === 'linux'
     ? path.join(adminXdgCacheHome, 'comfyui-desktop-2', 'download-cache')
     : path.join(adminUserDataPath, 'download-cache')
-const shouldRewriteCopiedDefaults = process.platform === 'win32'
+const shouldRewriteCopiedDefaults = false
 
 function readPersistedSettings(): Record<string, unknown> {
   const raw = fs.readFileSync(settingsPath, 'utf-8')
@@ -75,6 +77,8 @@ afterAll(() => {
   else process.env.XDG_CONFIG_HOME = originalXdgConfigHome
   if (originalXdgCacheHome === undefined) delete process.env.XDG_CACHE_HOME
   else process.env.XDG_CACHE_HOME = originalXdgCacheHome
+  if (originalLocalAppData === undefined) delete process.env.LOCALAPPDATA
+  else process.env.LOCALAPPDATA = originalLocalAppData
   fs.rmSync(tmpRoot, { recursive: true, force: true })
 })
 
@@ -171,8 +175,8 @@ describe('settings unset/default semantics', () => {
     expect(readPersistedSettings()['customKey']).toBeNull()
   })
 
-  it('defaults installDir to ~/ComfyUI-Installs and persists overrides', () => {
-    const builtinDefault = path.join(homePath, 'ComfyUI-Installs')
+  it('defaults installDir to the isolated FR data root and persists overrides', () => {
+    const builtinDefault = path.join(frDataRoot, 'ComfyUI-Installs')
     expect(settings.get('installDir')).toBe(builtinDefault)
 
     const custom = path.join(homePath, 'Custom', 'Installs')
@@ -190,7 +194,7 @@ describe('settings unset/default semantics', () => {
   it.runIf(process.platform === 'win32')(
     'falls back installDir/cacheDir to defaults when their volume is gone',
     () => {
-      const builtinDefault = path.join(homePath, 'ComfyUI-Installs')
+      const builtinDefault = path.join(frDataRoot, 'ComfyUI-Installs')
       const deadInstall = 'Z:\\Comfy-Desktop\\ComfyUI-Installs'
       const deadCache = 'Z:\\Comfy-Desktop\\ComfyUI-Cache\\download-cache'
       settings.set('installDir', deadInstall)
@@ -270,7 +274,7 @@ describe('settings unset/default semantics', () => {
 })
 
 describe('settings path sanitization', () => {
-  it('rewrites copied foreign-user defaults on Windows only', () => {
+  it('does not conflate manually copied upstream paths with FR-owned defaults', () => {
     fs.mkdirSync(path.dirname(settingsPath), { recursive: true })
     const customModelsDir = path.join(tmpRoot, 'custom-models')
     // The directories referenced below must exist on disk, otherwise the
@@ -401,7 +405,7 @@ describe('modelsDirs user ordering', () => {
     // beforeEach only wipes settings.json's parent dir; sweep the shared
     // root from any previous test in this run so we can assert it stays
     // absent after `settings.get` loads.
-    const sharedRoot = path.join(homePath, 'ComfyUI-Shared')
+    const sharedRoot = path.join(frDataRoot, 'ComfyUI-Shared')
     fs.rmSync(sharedRoot, { recursive: true, force: true })
 
     const userModels = path.join(tmpRoot, 'only-my-models')
@@ -433,7 +437,7 @@ describe('modelsDirs user ordering', () => {
     // default is restored as the primary entry and created on disk.
     const sharedRoot = path.join(homePath, 'ComfyUI-Shared')
     fs.rmSync(sharedRoot, { recursive: true, force: true })
-    const systemDefault = path.join(homePath, 'ComfyUI-Shared', 'models')
+    const systemDefault = path.join(frDataRoot, 'ComfyUI-Shared', 'models')
     const missing = path.join(tmpRoot, 'gone-models') // deliberately not created
 
     fs.mkdirSync(path.dirname(settingsPath), { recursive: true })
@@ -446,7 +450,7 @@ describe('modelsDirs user ordering', () => {
   })
 
   it('falls back to the default input/output dir when the designated one is missing (#699)', () => {
-    const sharedRoot = path.join(homePath, 'ComfyUI-Shared')
+    const sharedRoot = path.join(frDataRoot, 'ComfyUI-Shared')
     const defaultInput = path.join(sharedRoot, 'input')
     const defaultOutput = path.join(sharedRoot, 'output')
     const missingInput = path.join(tmpRoot, 'gone-input') // not created
@@ -487,7 +491,7 @@ describe('modelsDirs user ordering', () => {
 
     const dirs = settings.get('modelsDirs') as string[]
     expect(dirs.length).toBe(1)
-    expect(path.resolve(dirs[0]!)).toBe(path.join(homePath, 'ComfyUI-Shared', 'models'))
+    expect(path.resolve(dirs[0]!)).toBe(path.join(frDataRoot, 'ComfyUI-Shared', 'models'))
   })
 })
 

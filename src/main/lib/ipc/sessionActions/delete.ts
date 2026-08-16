@@ -83,7 +83,7 @@ export async function handleDelete(ctx: ActionContext): Promise<ActionResult> {
     return {
       ok: false,
       message:
-        'Safety check failed: this directory was not created by Comfy Desktop. Use Forget to remove it from the list, then delete the files manually.'
+        'Safety check failed: this directory was not created by FR ComfyUI Control Center. Use Forget to remove it from the list, then delete the files manually.'
     }
   }
   if (markerContent !== inst.id && markerContent !== 'tracked') {

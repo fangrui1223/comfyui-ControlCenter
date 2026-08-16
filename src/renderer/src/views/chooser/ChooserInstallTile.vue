@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { AlertCircle, ArrowDownToLine, ArrowRightLeft, MoreVertical } from 'lucide-vue-next'
+import {
+  AlertCircle,
+  ArrowDownToLine,
+  ArrowRightLeft,
+  History,
+  MoreVertical,
+  Play,
+  Stethoscope
+} from 'lucide-vue-next'
 import { useSessionStore } from '../../stores/sessionStore'
 import { installTypeMetaForInstall } from '../../lib/installTypeIcon'
 import Tooltip from '../../components/ui/Tooltip.vue'
@@ -24,6 +32,7 @@ const emit = defineEmits<{
   'open-card-menu': [event: MouseEvent, installation: Installation]
   'open-kebab-menu': [event: MouseEvent, installation: Installation]
   'trigger-action': [action: 'update' | 'migrate', installation: Installation]
+  manage: [installation: Installation, tab: 'status' | 'update' | 'snapshots']
   'view-error': [installation: Installation]
   'view-danger': [installation: Installation]
 }>()
@@ -247,6 +256,37 @@ function triggerInstallAction(action: 'update' | 'migrate'): void {
           </span>
         </Tooltip>
       </div>
+      <div class="chooser-tile-quick-actions" :aria-label="t('chooser.quickActions')">
+        <button type="button" @click.stop="handleClick" @keydown.enter.stop @keydown.space.stop>
+          <Play :size="12" />{{
+            isRunning || isLaunching ? t('chooser.open') : t('chooser.launch')
+          }}
+        </button>
+        <button
+          type="button"
+          @click.stop="emit('manage', inst, 'update')"
+          @keydown.enter.stop
+          @keydown.space.stop
+        >
+          <ArrowDownToLine :size="12" />{{ t('chooser.manageUpdate') }}
+        </button>
+        <button
+          type="button"
+          @click.stop="emit('manage', inst, 'status')"
+          @keydown.enter.stop
+          @keydown.space.stop
+        >
+          <Stethoscope :size="12" />{{ t('chooser.repair') }}
+        </button>
+        <button
+          type="button"
+          @click.stop="emit('manage', inst, 'snapshots')"
+          @keydown.enter.stop
+          @keydown.space.stop
+        >
+          <History :size="12" />{{ t('chooser.rollback') }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -268,5 +308,39 @@ function triggerInstallAction(action: 'update' | 'migrate'): void {
   line-height: normal;
   text-transform: uppercase;
   white-space: nowrap;
+}
+
+.chooser-tile-quick-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  margin-top: 5px;
+}
+.chooser-tile-quick-actions button {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 4px 3px;
+  border: 1px solid rgb(255 255 255 / 8%);
+  border-radius: 6px;
+  background: rgb(255 255 255 / 4%);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 9px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chooser-tile-quick-actions button:hover,
+.chooser-tile-quick-actions button:focus-visible {
+  border-color: rgb(103 216 255 / 32%);
+  background: rgb(75 164 232 / 13%);
+  color: var(--neutral-100);
+  outline: none;
+}
+.chooser-tile-quick-actions button:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
 }
 </style>

@@ -27,8 +27,8 @@ export interface SeedOptions {
    *  with the same semantics as `LIFECYCLE_REUSE_DIR` (persisted settings are
    *  folded into the seed; the dir survives cleanup). Lets a spec quit and
    *  relaunch the SAME profile to cover restart hydration. The caller owns
-   *  creating and removing the dir. Not supported on macOS (Application
-   *  Support ignores the HOME override). */
+   *  creating and removing the dir. The FR bootstrap receives its explicit
+   *  userData path, including on macOS. */
   profileDir?: string
 }
 
@@ -76,6 +76,7 @@ function formatSeedTimestamp(date: Date): string {
 
 function buildIsolatedEnv(
   homeDir: string,
+  appDataDir: string,
   settingsSeed?: Record<string, unknown>
 ): Record<string, string> {
   const inheritedEnv = Object.fromEntries(
@@ -93,7 +94,11 @@ function buildIsolatedEnv(
     XDG_DATA_HOME: path.join(homeDir, '.local', 'share'),
     XDG_STATE_HOME: path.join(homeDir, '.local', 'state'),
     // Gates `registerE2EHooks()` in main so `globalThis.__e2e` is wired up.
-    E2E: '1'
+    E2E: '1',
+    // The FR bootstrap consumes this before any settings or token-store module
+    // is imported. It also fixes Electron's macOS Application Support path,
+    // which does not honor HOME on its own.
+    FR_CONTROL_CENTER_E2E_USER_DATA: appDataDir
   }
 
   // Windows resolves userData via APPDATA; point it into the isolated home
@@ -125,15 +130,6 @@ export async function launchLauncherApp(options?: SeedOptions): Promise<Launcher
   // ~2-minute install). A reused dir is preserved on cleanup; a fresh dir is
   // printed so the operator can re-export it.
   const reuseDir = options?.profileDir ?? process.env['LIFECYCLE_REUSE_DIR']
-  // macOS ignores the HOME override for userData (Application Support), so
-  // a reused profile's persisted settings can neither be read back nor kept
-  // from clobbering the developer's real profile - only fresh runs are
-  // supported there.
-  if (reuseDir && process.platform === 'darwin') {
-    throw new Error(
-      'Profile reuse (profileDir / LIFECYCLE_REUSE_DIR) is not supported on macOS: Electron resolves userData outside the isolated profile dir, so persisted settings cannot be reused safely - run against a fresh profile'
-    )
-  }
   const homeDir = reuseDir ?? (await mkdtemp(path.join(os.tmpdir(), 'comfyui-launcher-e2e-')))
   if (reuseDir) {
     console.log(`[lifecycle-harness] reusing profile dir: ${homeDir}`)
@@ -150,10 +146,10 @@ export async function launchLauncherApp(options?: SeedOptions): Promise<Launcher
   // seeded via `E2E_SETTINGS_SEED` rather than a settings.json file here.
   const appDataDir =
     process.platform === 'win32'
-      ? path.join(homeDir, 'AppData', 'Roaming', 'comfyui-desktop-2')
+      ? path.join(homeDir, 'AppData', 'Roaming', 'FR-ComfyUI-ControlCenter')
       : process.platform === 'darwin'
-        ? path.join(homeDir, 'Library', 'Application Support', 'comfyui-desktop-2')
-        : path.join(homeDir, '.config', 'comfyui-desktop-2')
+        ? path.join(homeDir, 'Library', 'Application Support', 'FR-ComfyUI-ControlCenter')
+        : path.join(homeDir, '.config', 'fr-comfyui-control-center')
   await mkdir(appDataDir, { recursive: true })
 
   if (options?.onSetup) {
@@ -261,7 +257,10 @@ export async function launchLauncherApp(options?: SeedOptions): Promise<Launcher
     // under the harness. Callers can still override explicitly.
     delete persistedSettings['telemetryEnabled']
   }
-  const env = buildIsolatedEnv(homeDir, { ...persistedSettings, ...(options?.settings ?? {}) })
+  const env = buildIsolatedEnv(homeDir, appDataDir, {
+    ...persistedSettings,
+    ...(options?.settings ?? {})
+  })
   if (seedRecords.length > 0) {
     env['E2E_INSTALLATIONS_SEED'] = JSON.stringify(seedRecords)
   }

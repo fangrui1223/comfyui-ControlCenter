@@ -70,8 +70,6 @@ vi.mock('./startup-attempt-marker', () => ({
   })
 }))
 
-const originalPlatform = Object.getOwnPropertyDescriptor(process, 'platform')!
-
 /** Import the (freshly-mocked) updater module and register its IPC + listeners. */
 async function bootUpdater(): Promise<typeof UpdaterModule> {
   const mod = await import('./updater')
@@ -79,94 +77,100 @@ async function bootUpdater(): Promise<typeof UpdaterModule> {
   return mod
 }
 
-describe('isSystemPackageInstall (via get-update-capabilities)', () => {
-  let registeredHandlers: Record<string, (...args: unknown[]) => unknown>
+describe('isSystemPackageInstallFor', () => {
+  let isSystemPackageInstallFor: typeof UpdaterModule.isSystemPackageInstallFor
 
   beforeEach(async () => {
-    registeredHandlers = {}
-    const { ipcMain } = await import('electron')
-    vi.mocked(ipcMain.handle).mockImplementation(((
-      channel: string,
-      handler: (...args: unknown[]) => unknown
-    ) => {
-      registeredHandlers[channel] = handler
-    }) as typeof ipcMain.handle)
-
     mockPlatform = 'linux'
     mockAppImage = undefined
     mockIsPackaged = true
     mockExePath = '/opt/Comfy Desktop/comfyui-desktop-2'
-
-    delete process.env.APPIMAGE
-    Object.defineProperty(process, 'platform', { value: mockPlatform, configurable: true })
-
-    vi.resetModules()
+    ;({ isSystemPackageInstallFor } = await import('./updater'))
   })
 
-  afterEach(() => {
-    Object.defineProperty(process, 'platform', originalPlatform)
-  })
-
-  async function getCapabilities(): Promise<{ canAutoUpdate: boolean; systemManaged: boolean }> {
-    Object.defineProperty(process, 'platform', { value: mockPlatform, configurable: true })
-    if (mockAppImage) {
-      process.env.APPIMAGE = mockAppImage
-    } else {
-      delete process.env.APPIMAGE
-    }
-
-    vi.resetModules()
-    await bootUpdater()
-    const handler = registeredHandlers['get-update-capabilities']!
-    return handler() as { canAutoUpdate: boolean; systemManaged: boolean }
+  function getCapabilities(): { canAutoUpdate: boolean; systemManaged: boolean } {
+    const systemManaged = isSystemPackageInstallFor({
+      platform: mockPlatform as NodeJS.Platform,
+      isPackaged: mockIsPackaged,
+      appImage: mockAppImage,
+      executablePath: mockExePath
+    })
+    return { canAutoUpdate: !systemManaged, systemManaged }
   }
 
-  it('detects .deb install under /opt/', async () => {
+  it('detects .deb install under /opt/', () => {
     mockExePath = '/opt/Comfy Desktop/comfyui-desktop-2'
-    const caps = await getCapabilities()
+    const caps = getCapabilities()
     expect(caps).toEqual({ canAutoUpdate: false, systemManaged: true })
   })
 
-  it('detects .deb install under /usr/', async () => {
+  it('detects .deb install under /usr/', () => {
     mockExePath = '/usr/lib/comfyui-desktop-2/comfyui-desktop-2'
-    const caps = await getCapabilities()
+    const caps = getCapabilities()
     expect(caps).toEqual({ canAutoUpdate: false, systemManaged: true })
   })
 
-  it('returns standard for AppImage (APPIMAGE env set)', async () => {
+  it('returns standard for AppImage (APPIMAGE env set)', () => {
     mockAppImage = '/home/user/Comfy-Desktop.AppImage'
-    const caps = await getCapabilities()
+    const caps = getCapabilities()
     expect(caps).toEqual({ canAutoUpdate: true, systemManaged: false })
   })
 
-  it('returns standard for Windows', async () => {
+  it('returns standard for Windows', () => {
     mockPlatform = 'win32'
-    const caps = await getCapabilities()
+    const caps = getCapabilities()
     expect(caps).toEqual({ canAutoUpdate: true, systemManaged: false })
   })
 
-  it('returns standard for macOS', async () => {
+  it('returns standard for macOS', () => {
     mockPlatform = 'darwin'
-    const caps = await getCapabilities()
+    const caps = getCapabilities()
     expect(caps).toEqual({ canAutoUpdate: true, systemManaged: false })
   })
 
-  it('returns standard when not packaged (dev mode)', async () => {
+  it('returns standard when not packaged (dev mode)', () => {
     mockIsPackaged = false
-    const caps = await getCapabilities()
+    const caps = getCapabilities()
     expect(caps).toEqual({ canAutoUpdate: true, systemManaged: false })
   })
 
-  it('returns standard for Linux exe under /home/ (manual extract)', async () => {
+  it('returns standard for Linux exe under /home/ (manual extract)', () => {
     mockExePath = '/home/user/apps/comfyui-desktop-2'
-    const caps = await getCapabilities()
+    const caps = getCapabilities()
     expect(caps).toEqual({ canAutoUpdate: true, systemManaged: false })
   })
 
-  it('returns standard for Linux exe under /tmp/ (temp location)', async () => {
+  it('returns standard for Linux exe under /tmp/ (temp location)', () => {
     mockExePath = '/tmp/.mount_comfyui/comfyui-desktop-2'
-    const caps = await getCapabilities()
+    const caps = getCapabilities()
     expect(caps).toEqual({ canAutoUpdate: true, systemManaged: false })
+  })
+})
+
+describe('FR update channel isolation', () => {
+  it('registers fail-closed IPC handlers without binding the upstream updater', async () => {
+    vi.resetModules()
+    const handlers: Record<string, (...args: unknown[]) => unknown> = {}
+    const { ipcMain } = await import('electron')
+    vi.mocked(ipcMain.handle).mockReset()
+    vi.mocked(ipcMain.handle).mockImplementation(((
+      channel: string,
+      handler: (...args: unknown[]) => unknown
+    ) => {
+      handlers[channel] = handler
+    }) as typeof ipcMain.handle)
+
+    const updater = await import('./updater')
+    updater.registerUnavailableChannel()
+
+    await expect(handlers['check-for-update']!()).resolves.toEqual({
+      available: false,
+      error: 'FR application update channel is not configured'
+    })
+    expect(handlers['get-update-capabilities']!()).toEqual({
+      canAutoUpdate: false,
+      systemManaged: false
+    })
   })
 })
 

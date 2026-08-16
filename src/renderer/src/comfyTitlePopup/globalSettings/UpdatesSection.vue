@@ -19,11 +19,13 @@ interface Props {
   lastCheckedAt: number | null
   installedVersion: string
   systemManaged?: boolean
+  canSelfUpdate?: boolean
   preferenceFields?: DetailField[]
 }
 
 const props = withDefaults(defineProps<Props>(), {
   systemManaged: false,
+  canSelfUpdate: true,
   preferenceFields: () => []
 })
 
@@ -54,6 +56,9 @@ const targetVersionLabel = computed(() => {
 })
 
 const statusSentence = computed(() => {
+  if (!props.canSelfUpdate) {
+    return t('appUpdate.channelUnavailable')
+  }
   if (props.isDownloading || props.state.kind === 'downloading') {
     return t(
       'appUpdate.panelDownloadingTitle',
@@ -81,7 +86,7 @@ const statusSentence = computed(() => {
         'Update available'
       )
     default:
-      return t('appUpdate.panelIdleTitle', 'Comfy Desktop is up to date')
+      return t('appUpdate.panelIdleTitle', 'FR ComfyUI Control Center is up to date')
   }
 })
 
@@ -194,6 +199,9 @@ const progressDetail = computed<string | null>(() => {
             )
           }}
         </p>
+        <p v-else-if="!canSelfUpdate" class="updates-note">
+          {{ t('appUpdate.channelUnavailableNote') }}
+        </p>
 
         <div v-if="isDownloading" class="updates-progress">
           <div class="progress-bar-track" :class="{ indeterminate: percent === null }">
@@ -210,7 +218,7 @@ const progressDetail = computed<string | null>(() => {
         </div>
       </div>
 
-      <div class="updates-card-footer">
+      <div v-if="canSelfUpdate" class="updates-card-footer">
         <button
           v-if="showSecondaryCheck"
           type="button"

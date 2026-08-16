@@ -182,6 +182,8 @@ export function buildElectronApi(): ElectronApi {
     getMediaSections: () => ipcRenderer.invoke('get-media-sections'),
     setSetting: (key, value) => ipcRenderer.invoke('set-setting', key, value),
     getSetting: (key) => ipcRenderer.invoke('get-setting', key),
+    getFrEnvironmentProfiles: () => ipcRenderer.invoke('fr-environments:list'),
+    saveFrEnvironmentProfile: (input) => ipcRenderer.invoke('fr-environments:save', input),
 
     // Theme
     getResolvedTheme: () => ipcRenderer.invoke('get-resolved-theme'),
@@ -471,6 +473,12 @@ export function buildElectronApi(): ElectronApi {
       const handler = (_event: IpcRendererEvent, data: unknown) => callback(data as { key: string })
       ipcRenderer.on('settings-changed', handler)
       return () => ipcRenderer.removeListener('settings-changed', handler)
+    },
+    onFrEnvironmentProfilesChanged: (callback) => {
+      const handler = (_event: IpcRendererEvent, data: unknown) =>
+        callback(data as Parameters<typeof callback>[0])
+      ipcRenderer.on('fr-environments-changed', handler)
+      return () => ipcRenderer.removeListener('fr-environments-changed', handler)
     },
     onPanelSwitch: (callback) => {
       const handler = (_event: IpcRendererEvent, data: unknown) =>

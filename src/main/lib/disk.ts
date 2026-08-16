@@ -131,8 +131,8 @@ function getRestrictedPaths(): { path: string; issue: PathIssue }[] {
   if (process.platform === 'win32') {
     const localAppData = process.env.LOCALAPPDATA
     if (localAppData) {
-      add('insideAppBundle', path.join(localAppData, 'comfyui-desktop-2-updater'))
-      add('insideAppBundle', path.join(localAppData, '@comfyorgcomfyui-desktop-2-updater'))
+      add('insideAppBundle', path.join(localAppData, 'fr-comfyui-control-center-updater'))
+      add('insideAppBundle', path.join(localAppData, '@fr-aifr-comfyui-control-center-updater'))
     }
 
     add('oneDrive', process.env.OneDrive)

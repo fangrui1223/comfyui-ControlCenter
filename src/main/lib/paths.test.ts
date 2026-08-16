@@ -43,7 +43,7 @@ describe('drive-aware defaults', () => {
     exePath = 'D:\\Programs\\Comfy Desktop\\Comfy Desktop.exe'
     const p = await loadPaths()
 
-    const dataRoot = path.join('D:\\', 'Comfy-Desktop')
+    const dataRoot = path.join('D:\\', 'FR-ComfyUI-ControlCenter')
     expect(p.defaultDataRoot()).toBe(dataRoot)
     expect(p.builtinDefaultInstallDir()).toBe(path.join(dataRoot, 'ComfyUI-Installs'))
     expect(p.defaultDownloadCacheDir()).toBe(path.join(dataRoot, 'ComfyUI-Cache', 'download-cache'))
@@ -63,9 +63,11 @@ describe('drive-aware defaults', () => {
       const p = await loadPaths()
 
       // HOME (/mock/home) parses to a non-C: drive; the old home-anchored logic
-      // would have wrongly redirected to C:\Comfy-Desktop.
-      expect(p.defaultDataRoot()).toBe(path.join('C:\\Users\\me\\AppData\\Local', 'Comfy-Desktop'))
-      expect(p.defaultDataRoot()).not.toBe(path.join('C:\\', 'Comfy-Desktop'))
+      // would have wrongly redirected to C:\FR-ComfyUI-ControlCenter.
+      expect(p.defaultDataRoot()).toBe(
+        path.join('C:\\Users\\me\\AppData\\Local', 'FR-ComfyUI-ControlCenter')
+      )
+      expect(p.defaultDataRoot()).not.toBe(path.join('C:\\', 'FR-ComfyUI-ControlCenter'))
     } finally {
       if (prevSystemDrive === undefined) delete process.env.SystemDrive
       else process.env.SystemDrive = prevSystemDrive
@@ -132,23 +134,23 @@ describe('windows system-drive defaults', () => {
     )
   }
 
-  it('new install (no footprint) groups under %LOCALAPPDATA%\\Comfy-Desktop', async () => {
+  it('new install groups under the isolated FR LocalAppData root', async () => {
     const p = await import('./paths')
 
-    const root = path.join(LOCAL, 'Comfy-Desktop')
+    const root = path.join(LOCAL, 'FR-ComfyUI-ControlCenter')
     expect(p.defaultDataRoot()).toBe(root)
     expect(p.builtinDefaultInstallDir()).toBe(path.join(root, 'ComfyUI-Installs'))
     expect(p.defaultDownloadCacheDir()).toBe(path.join(root, 'ComfyUI-Cache', 'download-cache'))
   })
 
-  it('existing install (home footprint) keeps home root and roaming cache', async () => {
+  it('does not infer ownership from an upstream home footprint', async () => {
     fs.mkdirSync(path.join(homeDir, 'ComfyUI-Installs'), { recursive: true })
     const p = await import('./paths')
 
-    expect(p.defaultDataRoot()).toBe(homeDir)
-    expect(p.builtinDefaultInstallDir()).toBe(path.join(homeDir, 'ComfyUI-Installs'))
-    // Roaming userData/download-cache, not the grouped Comfy-Desktop cache.
-    expect(p.defaultDownloadCacheDir()).toBe(path.join(userDataDir, 'download-cache'))
+    const root = path.join(LOCAL, 'FR-ComfyUI-ControlCenter')
+    expect(p.defaultDataRoot()).toBe(root)
+    expect(p.builtinDefaultInstallDir()).toBe(path.join(root, 'ComfyUI-Installs'))
+    expect(p.defaultDownloadCacheDir()).toBe(path.join(root, 'ComfyUI-Cache', 'download-cache'))
   })
 
   it('a local-appdata marker wins even when legacy folders later appear', async () => {
@@ -156,7 +158,7 @@ describe('windows system-drive defaults', () => {
     fs.mkdirSync(path.join(homeDir, 'ComfyUI-Shared'), { recursive: true })
     const p = await import('./paths')
 
-    expect(p.defaultDataRoot()).toBe(path.join(LOCAL, 'Comfy-Desktop'))
+    expect(p.defaultDataRoot()).toBe(path.join(LOCAL, 'FR-ComfyUI-ControlCenter'))
   })
 
   it('a legacy-home marker wins even when no legacy footprint exists', async () => {

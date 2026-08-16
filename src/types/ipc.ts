@@ -3,6 +3,10 @@
 
 import type { FirstUseMode } from '../shared/firstUseMode'
 import type { GpuTier } from '../shared/gpuTier'
+import type {
+  FrEnvironmentProfileView,
+  SaveFrEnvironmentProfileInput
+} from '../shared/frEnvironmentProfiles'
 export type { FirstUseMode }
 
 // Dev-platform (cloud auth + comfy-builder) renderer-safe types. Re-exported
@@ -1371,6 +1375,10 @@ export interface ElectronApi {
   getUniqueName(baseName: string): Promise<string>
   setSetting(key: string, value: unknown): Promise<void>
   getSetting(key: string): Promise<unknown>
+  getFrEnvironmentProfiles(): Promise<FrEnvironmentProfileView[]>
+  saveFrEnvironmentProfile(
+    input: SaveFrEnvironmentProfileInput
+  ): Promise<FrEnvironmentProfileView[]>
 
   // Theme
   getResolvedTheme(): Promise<ResolvedTheme>
@@ -1589,6 +1597,9 @@ export interface ElectronApi {
   onErrorDetail(callback: (data: ErrorDetailData) => void): Unsubscribe
   onSuggestChineseMirrors(callback: () => void): Unsubscribe
   onSettingsChanged(callback: (data: { key: string }) => void): Unsubscribe
+  onFrEnvironmentProfilesChanged(
+    callback: (profiles: FrEnvironmentProfileView[]) => void
+  ): Unsubscribe
   /**
    * Fired by main when something requests a panel switch in the embedded
    * panel WebContentsView (e.g. from the ComfyUI window's title-bar buttons).
