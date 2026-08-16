@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "acceptedAt": "2026-08-16T06:12:08Z",
+  "sharedRoot": "C:\\FR_comfyui\\models",
+  "environmentRoot": "C:\\FR_comfyui_next",
+  "inventory": {
+    "topLevelDirectories": 98,
+    "files": 2044,
+    "bytes": 1737079968159,
+    "physicalCoreDirectories": 26,
+    "logicalCoreCategories": 24,
+    "pluginVerificationRequired": 72,
+    "blocked": 0,
+    "scanErrors": 0
+  },
+  "transaction": {
+    "id": "models-20260816141148-a83852a6",
+    "status": "committed",
+    "digest": "26e3e428010f43d112fe4c2e31ff4fefab621cb8e03ab9e2761fe063dce30f1b",
+    "config": "C:\\FR_comfyui_next\\.fr-control-center\\model-mappings\\extra_model_paths.yaml",
+    "undo": "C:\\FR_comfyui_next\\.fr-control-center\\model-mappings\\undo.json"
+  },
+  "gates": {
+    "stableLibraryWrites": 0,
+    "junctionsCreated": 0,
+    "coreV0331LoadedAllMappedPaths": "pass",
+    "tritonAndDynamicVramAfterMapping": "pass"
+  }
+}
