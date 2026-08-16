@@ -56,6 +56,8 @@ function buildManagerConfig(opts: {
   useChineseMirrors: boolean
   securityLevel: ManagerSecurityLevel
   networkMode: ManagerNetworkMode
+  allowGitUrlInstall?: boolean
+  allowPipInstall?: boolean
 }): string {
   const lines = ['[default]']
   if (opts.useChineseMirrors) {
@@ -64,6 +66,12 @@ function buildManagerConfig(opts: {
   }
   lines.push(`security_level = ${opts.securityLevel}`)
   lines.push(`network_mode = ${opts.networkMode}`)
+  if (opts.allowGitUrlInstall !== undefined) {
+    lines.push(`allow_git_url_install = ${opts.allowGitUrlInstall ? 'true' : 'false'}`)
+  }
+  if (opts.allowPipInstall !== undefined) {
+    lines.push(`allow_pip_install = ${opts.allowPipInstall ? 'true' : 'false'}`)
+  }
   return lines.join('\n') + '\n'
 }
 
@@ -178,6 +186,8 @@ export async function ensureManagerConfig(
     useChineseMirrors: boolean
     securityLevel?: ManagerSecurityLevel
     networkMode?: ManagerNetworkMode
+    allowGitUrlInstall?: boolean
+    allowPipInstall?: boolean
   } = {
     useChineseMirrors: false
   }
@@ -190,6 +200,12 @@ export async function ensureManagerConfig(
   const requested: Record<string, string> = {}
   if (securityLevel) requested['security_level'] = securityLevel
   if (networkMode) requested['network_mode'] = networkMode
+  if (opts.allowGitUrlInstall !== undefined) {
+    requested['allow_git_url_install'] = opts.allowGitUrlInstall ? 'true' : 'false'
+  }
+  if (opts.allowPipInstall !== undefined) {
+    requested['allow_pip_install'] = opts.allowPipInstall ? 'true' : 'false'
+  }
   const hasRequested = Object.keys(requested).length > 0
 
   if (fs.existsSync(target)) {
@@ -206,7 +222,9 @@ export async function ensureManagerConfig(
   const content = buildManagerConfig({
     useChineseMirrors: opts.useChineseMirrors,
     securityLevel: securityLevel ?? DEFAULT_MANAGER_SECURITY_LEVEL,
-    networkMode: networkMode ?? DEFAULT_MANAGER_NETWORK_MODE
+    networkMode: networkMode ?? DEFAULT_MANAGER_NETWORK_MODE,
+    allowGitUrlInstall: opts.allowGitUrlInstall,
+    allowPipInstall: opts.allowPipInstall
   })
   try {
     await fs.promises.mkdir(path.dirname(target), { recursive: true })

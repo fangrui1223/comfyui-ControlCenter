@@ -31,6 +31,28 @@ describe('ensureManagerConfig', () => {
       expect(written).toContain('security_level = normal')
     })
 
+    it('writes and reconciles the independent Manager v4 direct-install flags', async () => {
+      await ensureManagerConfig(tmpRoot, {
+        useChineseMirrors: false,
+        securityLevel: 'normal',
+        networkMode: 'public',
+        allowGitUrlInstall: false,
+        allowPipInstall: false
+      })
+      let written = readModern()
+      expect(written).toContain('allow_git_url_install = false')
+      expect(written).toContain('allow_pip_install = false')
+
+      await ensureManagerConfig(tmpRoot, {
+        useChineseMirrors: false,
+        allowGitUrlInstall: true,
+        allowPipInstall: false
+      })
+      written = readModern()
+      expect(written).toContain('allow_git_url_install = true')
+      expect(written).toContain('allow_pip_install = false')
+    })
+
     it('writes the chosen security level alongside the mirror block', async () => {
       await ensureManagerConfig(tmpRoot, { useChineseMirrors: true, securityLevel: 'weak' })
       expect(readModern()).toContain('security_level = weak')

@@ -1,0 +1,52 @@
+{
+  "milestone": "M5",
+  "status": "accepted",
+  "acceptedAt": "2026-08-16T06:22:47.0727914Z",
+  "manager": {
+    "generation": 4,
+    "package": "comfyui_manager",
+    "version": "4.2.2",
+    "api": "v2",
+    "legacyManagerCopied": false
+  },
+  "securityBaseline": {
+    "listen": "127.0.0.1",
+    "securityLevel": "normal",
+    "networkMode": "public",
+    "allowGitUrlInstall": false,
+    "allowPipInstall": false
+  },
+  "migration": {
+    "strategy": "clean-room-selective-reinstall",
+    "legacyPluginCount": 78,
+    "heldBackCount": 75,
+    "retireCandidateCount": 3,
+    "compiledDependencyCandidateCount": 17,
+    "alreadyPresentInNext": 0,
+    "stableCustomNodesWrites": 0
+  },
+  "transactions": {
+    "managerConfig": "manager-20260816062222-32376639",
+    "managerConfigSha256": "474CCC3EBC30C7C083FF29A9C03CF739A77A12F9448C95B3B761A76C60A22FA3"
+  },
+  "runtimeProbe": {
+    "origin": "http://127.0.0.1:8291",
+    "managerVersion": "V4.2.2",
+    "api": "v2",
+    "snapshotRemoveStatus": 200,
+    "portReleasedAfterProbe": true,
+    "startup": {
+      "python": "3.13.12",
+      "torch": "2.12.1+cu130",
+      "comfyui": "0.33.1",
+      "gpu": "NVIDIA GeForce RTX 5090",
+      "attention": "pytorch",
+      "dynamicVram": true
+    },
+    "warnings": [
+      "Optional Matrix sharing support is unavailable because matrix-nio is intentionally not installed.",
+      "OpenGL_accelerate is optional and not installed."
+    ],
+    "errors": []
+  }
+}
