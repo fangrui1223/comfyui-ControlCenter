@@ -1,0 +1,746 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-08-16",
+  "performancePresets": [
+    {
+      "id": "next-daily-performance",
+      "label": "Next daily performance",
+      "environment": "next",
+      "launchArguments": [
+        "--enable-triton-backend",
+        "--use-pytorch-cross-attention",
+        "--disable-xformers"
+      ],
+      "dynamicVram": "automatic",
+      "attentionBackend": "pytorch-sdpa",
+      "tritonBackend": "enabled",
+      "qualityGate": "runtime-smoke",
+      "notes": [
+        "Uses the PyTorch SDPA path that passed the RTX 5090 numerical probe.",
+        "Enables comfy-kitchen Triton kernels while leaving DynamicVRAM automatic.",
+        "xFormers remains disabled because its 0.0.35/cu130 attention kernels rejected SM120 on this machine."
+      ]
+    },
+    {
+      "id": "next-same-seed-comparison",
+      "label": "Next same-seed comparison",
+      "environment": "next",
+      "launchArguments": [
+        "--enable-triton-backend",
+        "--use-pytorch-cross-attention",
+        "--disable-xformers",
+        "--disable-dynamic-vram"
+      ],
+      "dynamicVram": "disabled",
+      "attentionBackend": "pytorch-sdpa",
+      "tritonBackend": "enabled",
+      "qualityGate": "same-seed-comparison",
+      "notes": [
+        "Use only for controlled output comparisons and regression checks.",
+        "Disabling DynamicVRAM can raise peak memory use and is not the daily default."
+      ]
+    },
+    {
+      "id": "lab-sageattention3-blackwell",
+      "label": "Lab SageAttention 3 Blackwell",
+      "environment": "lab",
+      "launchArguments": ["--enable-triton-backend", "--use-sage-attention", "--disable-xformers"],
+      "dynamicVram": "automatic",
+      "attentionBackend": "sageattention",
+      "tritonBackend": "enabled",
+      "qualityGate": "workflow-comparison",
+      "notes": [
+        "Lab only: pin an exact source commit and keep its compiled cache isolated.",
+        "Promote per model family only after speed, peak VRAM and same-workflow output comparison pass."
+      ]
+    }
+  ],
+  "profiles": [
+    {
+      "id": "minimax-h3-local",
+      "label": "MiniMax H3 local audio-video",
+      "family": "MiniMax H3",
+      "supportMode": "native-local",
+      "confidence": "verified-official",
+      "coreMarkers": [
+        {
+          "relativePath": "comfy_extras/nodes_minimax_h3.py",
+          "allOfTokens": ["MiniMaxH3ImageToVideo", "MiniMaxH3ReferenceToVideo"]
+        },
+        {
+          "relativePath": "comfy/text_encoders/minimax.py",
+          "allOfTokens": ["Qwen3-VL-32B", "MiniMaxH3Tokenizer"]
+        }
+      ],
+      "modelRequirements": [
+        {
+          "id": "diffusion-model",
+          "label": "MiniMax H3 diffusion model",
+          "required": true,
+          "oneOfPatterns": ["^diffusion_models/.*minimax[_-]?h3.*\\.(safetensors|gguf)$"]
+        },
+        {
+          "id": "text-encoder",
+          "label": "Qwen3-VL-32B MiniMax H3 text encoder",
+          "required": true,
+          "oneOfPatterns": [
+            "^(text_encoders|clip)/.*qwen3vl[_-]?32b.*minimax[_-]?h3.*\\.safetensors$"
+          ]
+        },
+        {
+          "id": "video-vae",
+          "label": "MiniMax H3 video VAE",
+          "required": true,
+          "oneOfPatterns": ["^vae/.*minimax[_-]?h3.*video.*vae.*\\.safetensors$"]
+        },
+        {
+          "id": "audio-vae",
+          "label": "MiniMax H3 audio VAE",
+          "required": true,
+          "oneOfPatterns": ["^vae/.*minimax[_-]?h3.*audio.*vae.*\\.safetensors$"]
+        }
+      ],
+      "performancePresetIds": ["next-daily-performance", "lab-sageattention3-blackwell"],
+      "evidence": [
+        {
+          "title": "MiniMax H3 official launch",
+          "url": "https://www.minimax.io/blog/minimax-h3",
+          "authority": "official-vendor",
+          "checkedAt": "2026-08-16"
+        },
+        {
+          "title": "ComfyUI official MiniMax H3 workflow",
+          "url": "https://github.com/Comfy-Org/workflow_templates/blob/main/templates/video_minimax_h3_t2v.json",
+          "authority": "official-project",
+          "checkedAt": "2026-08-16"
+        }
+      ],
+      "notes": [
+        "Core supports text-to-video, image-to-video and multi-reference audio-video conditioning.",
+        "Core enforces batch size 1; duration and resolution should be scaled before changing runtime components.",
+        "The official local workflow uses separate video and audio VAEs plus a truncated Qwen3-VL-32B encoder."
+      ]
+    },
+    {
+      "id": "krea2-turbo",
+      "label": "Krea 2 Turbo",
+      "family": "Krea 2",
+      "supportMode": "native-local",
+      "confidence": "verified-official",
+      "coreMarkers": [
+        {
+          "relativePath": "comfy/supported_models.py",
+          "allOfTokens": ["class Krea2"]
+        },
+        {
+          "relativePath": "comfy/text_encoders/krea2.py",
+          "allOfTokens": ["KREA2_TAP_LAYERS", "qwen3vl_4b"]
+        }
+      ],
+      "modelRequirements": [
+        {
+          "id": "diffusion-model",
+          "label": "Krea 2 Turbo diffusion model",
+          "required": true,
+          "oneOfPatterns": ["^diffusion_models/.*krea2[_-]?turbo.*\\.(safetensors|gguf)$"]
+        },
+        {
+          "id": "text-encoder",
+          "label": "Qwen3-VL-4B text encoder",
+          "required": true,
+          "oneOfPatterns": ["^(text_encoders|clip)/.*qwen3vl[_-]?4b.*\\.safetensors$"]
+        },
+        {
+          "id": "vae",
+          "label": "Qwen Image VAE",
+          "required": true,
+          "oneOfPatterns": ["^vae/qwen_image_vae\\.safetensors$"]
+        }
+      ],
+      "performancePresetIds": ["next-daily-performance", "lab-sageattention3-blackwell"],
+      "evidence": [
+        {
+          "title": "ComfyUI official Krea 2 guide",
+          "url": "https://docs.comfy.org/tutorials/image/krea/krea-2",
+          "authority": "official-project",
+          "checkedAt": "2026-08-16"
+        },
+        {
+          "title": "Krea 2 official repository",
+          "url": "https://github.com/krea-ai/krea-2",
+          "authority": "official-vendor",
+          "checkedAt": "2026-08-16"
+        }
+      ],
+      "notes": [
+        "Turbo is the eight-step daily inference profile.",
+        "Use the dedicated Krea2 CLIP type; its Qwen3-VL-4B conditioning tap differs from generic Qwen use."
+      ]
+    },
+    {
+      "id": "krea2-raw",
+      "label": "Krea 2 RAW",
+      "family": "Krea 2",
+      "supportMode": "native-local",
+      "confidence": "verified-official",
+      "coreMarkers": [
+        {
+          "relativePath": "comfy/supported_models.py",
+          "allOfTokens": ["class Krea2"]
+        }
+      ],
+      "modelRequirements": [
+        {
+          "id": "diffusion-model",
+          "label": "Krea 2 RAW diffusion model",
+          "required": true,
+          "oneOfPatterns": ["^diffusion_models/.*krea2[_-]?(raw|base).*\\.(safetensors|gguf)$"]
+        },
+        {
+          "id": "text-encoder",
+          "label": "Qwen3-VL-4B text encoder",
+          "required": true,
+          "oneOfPatterns": ["^(text_encoders|clip)/.*qwen3vl[_-]?4b.*\\.safetensors$"]
+        },
+        {
+          "id": "vae",
+          "label": "Qwen Image VAE",
+          "required": true,
+          "oneOfPatterns": ["^vae/qwen_image_vae\\.safetensors$"]
+        }
+      ],
+      "performancePresetIds": ["next-daily-performance", "next-same-seed-comparison"],
+      "evidence": [
+        {
+          "title": "ComfyUI official Krea 2 guide",
+          "url": "https://docs.comfy.org/tutorials/image/krea/krea-2",
+          "authority": "official-project",
+          "checkedAt": "2026-08-16"
+        }
+      ],
+      "notes": [
+        "RAW is the non-distilled 52-step training and maximum-flexibility profile.",
+        "LoRAs trained on RAW can be applied to Turbo according to the official guide."
+      ]
+    },
+    {
+      "id": "wan22-animate",
+      "label": "Wan 2.2 Animate",
+      "family": "Wan Animate",
+      "supportMode": "native-local-with-optional-preprocessor",
+      "confidence": "verified-official",
+      "coreMarkers": [
+        {
+          "relativePath": "comfy/supported_models.py",
+          "allOfTokens": ["class WAN22_Animate"]
+        },
+        {
+          "relativePath": "comfy_extras/nodes_wan.py",
+          "allOfTokens": ["WanAnimateToVideo"]
+        }
+      ],
+      "modelRequirements": [
+        {
+          "id": "diffusion-model",
+          "label": "Wan 2.2 Animate diffusion model",
+          "required": true,
+          "oneOfPatterns": ["^diffusion_models/.*wan2[_-]?2.*animate.*\\.(safetensors|gguf)$"]
+        },
+        {
+          "id": "text-encoder",
+          "label": "UMT5 XXL text encoder",
+          "required": true,
+          "oneOfPatterns": ["^(text_encoders|clip)/.*umt5_xxl.*\\.safetensors$"]
+        },
+        {
+          "id": "clip-vision",
+          "label": "CLIP Vision H",
+          "required": true,
+          "oneOfPatterns": ["^clip_vision/clip_vision_h\\.safetensors$"]
+        },
+        {
+          "id": "vae",
+          "label": "Wan 2.1 VAE",
+          "required": true,
+          "oneOfPatterns": ["^vae/wan2_1_vae.+\\.safetensors$"]
+        }
+      ],
+      "optionalPluginIds": ["comfyui_controlnet_aux"],
+      "performancePresetIds": ["next-daily-performance", "lab-sageattention3-blackwell"],
+      "evidence": [
+        {
+          "title": "ComfyUI official Wan 2.2 Animate guide",
+          "url": "https://docs.comfy.org/tutorials/video/wan/wan2-2-animate",
+          "authority": "official-project",
+          "checkedAt": "2026-08-16"
+        },
+        {
+          "title": "Wan 2.2 Animate official model card",
+          "url": "https://huggingface.co/Wan-AI/Wan2.2-Animate-14B",
+          "authority": "official-vendor",
+          "checkedAt": "2026-08-16"
+        }
+      ],
+      "notes": [
+        "Core performs Animate conditioning; comfyui_controlnet_aux is optional for the official end-to-end pose preprocessing path.",
+        "Do not reinstall a full legacy Wan wrapper when Core nodes cover the workflow."
+      ]
+    },
+    {
+      "id": "wan-animate-2",
+      "label": "Wan Animate 2",
+      "family": "Wan Animate",
+      "supportMode": "native-local",
+      "confidence": "verified-official",
+      "coreMarkers": [
+        {
+          "relativePath": "comfy_extras/nodes_wan.py",
+          "allOfTokens": ["WanAnimate2ToVideo", "WanAnimate2Cache"]
+        }
+      ],
+      "modelRequirements": [
+        {
+          "id": "diffusion-model",
+          "label": "Wan Animate 2 diffusion model",
+          "required": true,
+          "oneOfPatterns": ["^diffusion_models/.*wan[_-]?animate[_-]?2.*\\.(safetensors|gguf)$"]
+        },
+        {
+          "id": "text-encoder",
+          "label": "UMT5 XXL text encoder",
+          "required": true,
+          "oneOfPatterns": ["^(text_encoders|clip)/.*umt5_xxl.*\\.safetensors$"]
+        },
+        {
+          "id": "clip-vision",
+          "label": "CLIP Vision H",
+          "required": true,
+          "oneOfPatterns": ["^clip_vision/clip_vision_h\\.safetensors$"]
+        },
+        {
+          "id": "vae",
+          "label": "Wan 2.1 VAE",
+          "required": true,
+          "oneOfPatterns": ["^vae/wan2_1_vae.+\\.safetensors$"]
+        }
+      ],
+      "performancePresetIds": ["next-daily-performance", "lab-sageattention3-blackwell"],
+      "evidence": [
+        {
+          "title": "ComfyUI official Wan Animate 2 model package",
+          "url": "https://huggingface.co/Comfy-Org/Wan-Animate-2",
+          "authority": "official-project",
+          "checkedAt": "2026-08-16"
+        },
+        {
+          "title": "ComfyUI official Wan Animate 2 workflow",
+          "url": "https://github.com/Comfy-Org/workflow_templates/blob/main/templates/video_wan_animate2.json",
+          "authority": "official-project",
+          "checkedAt": "2026-08-16"
+        }
+      ],
+      "notes": [
+        "This is tracked separately from Wan 2.2 Animate because it has a different diffusion checkpoint and Core cache node.",
+        "Existing Wan 2.2 Animate weights do not satisfy this profile."
+      ]
+    },
+    {
+      "id": "scail2",
+      "label": "SCAIL-2 character animation and replacement",
+      "family": "SCAIL-2",
+      "supportMode": "native-local",
+      "confidence": "verified-official",
+      "coreMarkers": [
+        {
+          "relativePath": "comfy/supported_models.py",
+          "allOfTokens": ["class WAN21_SCAIL2"]
+        },
+        {
+          "relativePath": "comfy_extras/nodes_scail.py",
+          "allOfTokens": ["SCAIL2ColoredMask", "SAM3"]
+        }
+      ],
+      "modelRequirements": [
+        {
+          "id": "diffusion-model",
+          "label": "SCAIL-2 diffusion model",
+          "required": true,
+          "oneOfPatterns": ["^diffusion_models/.*scail[_-]?2.*\\.(safetensors|gguf)$"]
+        },
+        {
+          "id": "text-encoder",
+          "label": "UMT5 XXL text encoder",
+          "required": true,
+          "oneOfPatterns": ["^(text_encoders|clip)/.*umt5_xxl.*\\.safetensors$"]
+        },
+        {
+          "id": "clip-vision",
+          "label": "CLIP Vision H",
+          "required": true,
+          "oneOfPatterns": ["^clip_vision/clip_vision_h\\.safetensors$"]
+        },
+        {
+          "id": "vae",
+          "label": "Wan 2.1 VAE",
+          "required": true,
+          "oneOfPatterns": ["^vae/wan2_1_vae.+\\.safetensors$"]
+        },
+        {
+          "id": "sam31",
+          "label": "SAM 3.1 multiplex checkpoint",
+          "required": true,
+          "oneOfPatterns": ["^checkpoints/.*sam3\\.1_multiplex.*\\.safetensors$"]
+        },
+        {
+          "id": "dpo-lora",
+          "label": "SCAIL-2 DPO LoRA",
+          "required": false,
+          "oneOfPatterns": ["^loras/.*scail[_-]?2.*dpo.*\\.safetensors$"]
+        }
+      ],
+      "performancePresetIds": ["next-daily-performance", "lab-sageattention3-blackwell"],
+      "evidence": [
+        {
+          "title": "SCAIL-2 official implementation",
+          "url": "https://github.com/zai-org/SCAIL-2",
+          "authority": "official-vendor",
+          "checkedAt": "2026-08-16"
+        },
+        {
+          "title": "ComfyUI official SCAIL-2 package",
+          "url": "https://huggingface.co/Comfy-Org/SCAIL-2",
+          "authority": "official-project",
+          "checkedAt": "2026-08-16"
+        }
+      ],
+      "notes": [
+        "Core includes SCAIL-2 conditioning, colored-mask construction and SAM 3 preprocessing.",
+        "The old ComfyUI-SCAIL-Pose plugin remains held back unless a specific missing workflow proves it necessary."
+      ]
+    },
+    {
+      "id": "flux2-klein-9b",
+      "label": "FLUX.2 Klein 9B",
+      "family": "FLUX.2 Klein",
+      "supportMode": "native-local",
+      "confidence": "verified-official",
+      "coreMarkers": [
+        {
+          "relativePath": "comfy/supported_models.py",
+          "allOfTokens": ["class Flux2"]
+        },
+        {
+          "relativePath": "comfy/sd.py",
+          "allOfTokens": ["CLIPType.FLUX2", "QWEN3_8B"]
+        }
+      ],
+      "modelRequirements": [
+        {
+          "id": "diffusion-model",
+          "label": "FLUX.2 Klein 9B diffusion model",
+          "required": true,
+          "oneOfPatterns": ["^diffusion_models/.*flux.?2.*klein.*9b.*\\.(safetensors|gguf)$"]
+        },
+        {
+          "id": "text-encoder",
+          "label": "Qwen3 8B text encoder",
+          "required": true,
+          "oneOfPatterns": ["^(text_encoders|clip)/qwen_3_8b.+\\.safetensors$"]
+        },
+        {
+          "id": "vae",
+          "label": "FLUX.2 VAE",
+          "required": true,
+          "oneOfPatterns": ["^vae/(flux2-vae|full_encoder_small_decoder)\\.safetensors$"]
+        }
+      ],
+      "performancePresetIds": ["next-daily-performance", "lab-sageattention3-blackwell"],
+      "evidence": [
+        {
+          "title": "ComfyUI official FLUX.2 Klein guide",
+          "url": "https://docs.comfy.org/tutorials/flux/flux-2-klein",
+          "authority": "official-project",
+          "checkedAt": "2026-08-16"
+        },
+        {
+          "title": "Black Forest Labs official model catalog",
+          "url": "https://huggingface.co/black-forest-labs/models",
+          "authority": "official-vendor",
+          "checkedAt": "2026-08-16"
+        }
+      ],
+      "notes": [
+        "The 9B profile is the quality-first daily choice for the 32 GB RTX 5090.",
+        "Base and distilled checkpoints are both accepted; store their workflow presets separately."
+      ]
+    },
+    {
+      "id": "flux2-klein-4b",
+      "label": "FLUX.2 Klein 4B",
+      "family": "FLUX.2 Klein",
+      "supportMode": "native-local",
+      "confidence": "verified-official",
+      "coreMarkers": [
+        {
+          "relativePath": "comfy/supported_models.py",
+          "allOfTokens": ["class Flux2"]
+        }
+      ],
+      "modelRequirements": [
+        {
+          "id": "diffusion-model",
+          "label": "FLUX.2 Klein 4B diffusion model",
+          "required": true,
+          "oneOfPatterns": ["^diffusion_models/.*flux.?2.*klein.*4b.*\\.(safetensors|gguf)$"]
+        },
+        {
+          "id": "text-encoder",
+          "label": "Qwen3 4B text encoder",
+          "required": true,
+          "oneOfPatterns": ["^(text_encoders|clip)/qwen_3_4b.+\\.safetensors$"]
+        },
+        {
+          "id": "vae",
+          "label": "FLUX.2 VAE",
+          "required": true,
+          "oneOfPatterns": ["^vae/(flux2-vae|full_encoder_small_decoder)\\.safetensors$"]
+        }
+      ],
+      "performancePresetIds": ["next-daily-performance"],
+      "evidence": [
+        {
+          "title": "ComfyUI official FLUX.2 Klein guide",
+          "url": "https://docs.comfy.org/tutorials/flux/flux-2-klein",
+          "authority": "official-project",
+          "checkedAt": "2026-08-16"
+        }
+      ],
+      "notes": [
+        "The 4B distilled checkpoint is the speed-first option and should not replace the 9B quality profile.",
+        "A Qwen3-VL file for another family does not automatically satisfy the exact Qwen3 4B encoder requirement."
+      ]
+    },
+    {
+      "id": "qwen-image-edit-2511",
+      "label": "Qwen Image Edit 2511",
+      "family": "Qwen Image",
+      "supportMode": "native-local",
+      "confidence": "verified-official",
+      "coreMarkers": [
+        {
+          "relativePath": "comfy/supported_models.py",
+          "allOfTokens": ["class QwenImage"]
+        },
+        {
+          "relativePath": "comfy_extras/nodes_qwen.py",
+          "allOfTokens": ["QwenExtension"]
+        }
+      ],
+      "modelRequirements": [
+        {
+          "id": "diffusion-model",
+          "label": "Qwen Image Edit 2511 diffusion model",
+          "required": true,
+          "oneOfPatterns": ["^diffusion_models/.*qwen_image_edit_2511.*\\.(safetensors|gguf)$"]
+        },
+        {
+          "id": "text-encoder",
+          "label": "Qwen 2.5 VL 7B text encoder",
+          "required": true,
+          "oneOfPatterns": ["^(text_encoders|clip)/qwen_2\\.5_vl_7b.+\\.safetensors$"]
+        },
+        {
+          "id": "vae",
+          "label": "Qwen Image VAE",
+          "required": true,
+          "oneOfPatterns": ["^vae/qwen_image_vae\\.safetensors$"]
+        }
+      ],
+      "performancePresetIds": ["next-daily-performance", "lab-sageattention3-blackwell"],
+      "evidence": [
+        {
+          "title": "ComfyUI official Qwen Image Edit guide",
+          "url": "https://docs.comfy.org/tutorials/image/qwen/qwen-image-edit",
+          "authority": "official-project",
+          "checkedAt": "2026-08-16"
+        }
+      ],
+      "notes": ["Native Core loading is preferred over a monolithic Qwen wrapper plugin."]
+    },
+    {
+      "id": "qwen-image-2512",
+      "label": "Qwen Image 2512",
+      "family": "Qwen Image",
+      "supportMode": "native-local",
+      "confidence": "verified-official",
+      "coreMarkers": [
+        {
+          "relativePath": "comfy/supported_models.py",
+          "allOfTokens": ["class QwenImage"]
+        }
+      ],
+      "modelRequirements": [
+        {
+          "id": "diffusion-model",
+          "label": "Qwen Image 2512 diffusion model",
+          "required": true,
+          "oneOfPatterns": ["^diffusion_models/.*qwen_image_2512.*\\.(safetensors|gguf)$"]
+        },
+        {
+          "id": "text-encoder",
+          "label": "Qwen 2.5 VL 7B text encoder",
+          "required": true,
+          "oneOfPatterns": ["^(text_encoders|clip)/qwen_2\\.5_vl_7b.+\\.safetensors$"]
+        },
+        {
+          "id": "vae",
+          "label": "Qwen Image VAE",
+          "required": true,
+          "oneOfPatterns": ["^vae/qwen_image_vae\\.safetensors$"]
+        },
+        {
+          "id": "lightning-lora",
+          "label": "Qwen Image 2512 Lightning LoRA",
+          "required": false,
+          "oneOfPatterns": ["^loras/.*qwen.*2512.*lightning.*\\.safetensors$"]
+        }
+      ],
+      "performancePresetIds": ["next-daily-performance", "lab-sageattention3-blackwell"],
+      "evidence": [
+        {
+          "title": "ComfyUI official Qwen Image 2512 guide",
+          "url": "https://docs.comfy.org/tutorials/image/qwen/qwen-image-2512",
+          "authority": "official-project",
+          "checkedAt": "2026-08-16"
+        }
+      ],
+      "notes": [
+        "FP8 is the daily memory-performance profile; BF16 remains a quality comparison option."
+      ]
+    },
+    {
+      "id": "qwen-image-layered",
+      "label": "Qwen Image Layered",
+      "family": "Qwen Image",
+      "supportMode": "native-local",
+      "confidence": "verified-official",
+      "coreMarkers": [
+        {
+          "relativePath": "comfy_extras/nodes_qwen.py",
+          "allOfTokens": ["EmptyQwenImageLayeredLatentImage"]
+        }
+      ],
+      "modelRequirements": [
+        {
+          "id": "diffusion-model",
+          "label": "Qwen Image Layered diffusion model",
+          "required": true,
+          "oneOfPatterns": ["^diffusion_models/.*qwen_image_layered.*\\.(safetensors|gguf)$"]
+        },
+        {
+          "id": "text-encoder",
+          "label": "Qwen 2.5 VL 7B text encoder",
+          "required": true,
+          "oneOfPatterns": ["^(text_encoders|clip)/qwen_2\\.5_vl_7b.+\\.safetensors$"]
+        },
+        {
+          "id": "vae",
+          "label": "Qwen Image Layered VAE",
+          "required": true,
+          "oneOfPatterns": ["^vae/qwen_image_layered_vae\\.safetensors$"]
+        }
+      ],
+      "performancePresetIds": ["next-daily-performance", "next-same-seed-comparison"],
+      "evidence": [
+        {
+          "title": "ComfyUI official Qwen Image Layered guide",
+          "url": "https://docs.comfy.org/tutorials/image/qwen/qwen-image-layered",
+          "authority": "official-project",
+          "checkedAt": "2026-08-16"
+        }
+      ],
+      "notes": [
+        "Layered uses its own VAE; the ordinary Qwen Image VAE does not satisfy this profile."
+      ]
+    },
+    {
+      "id": "qwen3-tts-plugin",
+      "label": "Qwen3 TTS local plugin profile",
+      "family": "Qwen Audio",
+      "supportMode": "plugin-local",
+      "confidence": "upstream-declared",
+      "coreMarkers": [],
+      "modelRequirements": [
+        {
+          "id": "model-directory",
+          "label": "Qwen3 TTS model files",
+          "required": true,
+          "oneOfPatterns": ["^qwen-tts/.+", "^qwen_tts/.+"]
+        }
+      ],
+      "requiredPluginIds": ["ComfyUI-Qwen-TTS"],
+      "performancePresetIds": ["next-daily-performance"],
+      "evidence": [
+        {
+          "title": "Qwen3 TTS official repository",
+          "url": "https://github.com/QwenLM/Qwen3-TTS",
+          "authority": "official-vendor",
+          "checkedAt": "2026-08-16"
+        }
+      ],
+      "notes": [
+        "This is not a native Core capability in the pinned Core version.",
+        "The non-standard model directory must not be linked until the selected plugin proves its expected path and Python 3.13 dependencies."
+      ]
+    },
+    {
+      "id": "flux3-official-api",
+      "label": "FLUX.3 official API video",
+      "family": "FLUX.3",
+      "supportMode": "official-api",
+      "confidence": "verified-official",
+      "coreMarkers": [
+        {
+          "relativePath": "comfy_api_nodes/nodes_bfl.py",
+          "allOfTokens": ["Flux3TextToVideoNode", "Flux3ImageToVideoNode"]
+        }
+      ],
+      "modelRequirements": [],
+      "performancePresetIds": [],
+      "evidence": [
+        {
+          "title": "ComfyUI official FLUX.3 API workflow",
+          "url": "https://github.com/Comfy-Org/workflow_templates/blob/main/templates/api_bfl_flux3_t2v.json",
+          "authority": "official-project",
+          "checkedAt": "2026-08-16"
+        }
+      ],
+      "notes": [
+        "This profile calls the official API and does not use the local RTX 5090 runtime or shared model files.",
+        "Credentials, pricing and network access are separate user-authorized concerns."
+      ]
+    },
+    {
+      "id": "flux3-local-watcher",
+      "label": "FLUX.3 future local/open model watcher",
+      "family": "FLUX.3",
+      "supportMode": "watcher",
+      "confidence": "future-unverified",
+      "coreMarkers": [],
+      "modelRequirements": [],
+      "performancePresetIds": [],
+      "evidence": [
+        {
+          "title": "Black Forest Labs official model catalog",
+          "url": "https://huggingface.co/black-forest-labs/models",
+          "authority": "official-vendor",
+          "checkedAt": "2026-08-16"
+        }
+      ],
+      "notes": [
+        "No local package tuple, model filenames or VRAM requirements are hard-coded until an official local release exists.",
+        "A future official release creates a new catalog revision and a lab transaction before next can adopt it."
+      ]
+    }
+  ]
+}

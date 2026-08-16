@@ -1,0 +1,677 @@
+{
+  "schemaVersion": 1,
+  "checkedAt": "2026-08-16",
+  "targetHardware": {
+    "gpu": "NVIDIA GeForce RTX 5090",
+    "vramMiB": 32607
+  },
+  "profiles": [
+    {
+      "profileId": "minimax-h3-local",
+      "vramGuidance": {
+        "minimumVramMiB": null,
+        "recommendedVramMiB": null,
+        "confidence": "target-validation-required",
+        "sourceUrl": "https://github.com/Comfy-Org/workflow_templates/blob/main/templates/video_minimax_h3_t2v.json",
+        "notes": [
+          "Official local workflow requirements do not define a universal VRAM floor.",
+          "Validate resolution and duration on the 32 GB target before publishing a recommendation."
+        ]
+      },
+      "tiers": [
+        {
+          "id": "quality",
+          "label": "Quality",
+          "precision": "fp16-or-bf16",
+          "modelPatterns": ["^diffusion_models/.*minimax[_-]?h3.*(fp16|bf16).*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-same-seed-comparison",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "experimental-option",
+          "notes": [
+            "No quality tier is promoted until an official full-precision file and workflow pass the target benchmark."
+          ]
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "precision": "fp8-or-nvfp4",
+          "modelPatterns": ["^diffusion_models/.*minimax[_-]?h3.*(fp8|nvfp4).*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "experimental-option",
+          "notes": ["Candidate only; record audio-video output comparison before promotion."]
+        },
+        {
+          "id": "speed",
+          "label": "Speed",
+          "precision": "int8-convrot",
+          "modelPatterns": [
+            "^diffusion_models/.*minimax[_-]?h3.*int8[_-]?convrot.*\\.safetensors$"
+          ],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Matches the current official ComfyUI T2V workflow checkpoint class."]
+        }
+      ]
+    },
+    {
+      "profileId": "krea2-turbo",
+      "vramGuidance": {
+        "minimumVramMiB": null,
+        "recommendedVramMiB": null,
+        "confidence": "target-validation-required",
+        "sourceUrl": "https://docs.comfy.org/tutorials/image/krea/krea-2",
+        "notes": [
+          "VRAM guidance remains unpublished until the local eight-step workflow records peak allocation."
+        ]
+      },
+      "tiers": [
+        {
+          "id": "quality",
+          "label": "Quality",
+          "precision": "bf16-or-fp16",
+          "modelPatterns": ["^diffusion_models/.*krea2[_-]?turbo.*(bf16|fp16).*\\.safetensors$"],
+          "steps": 8,
+          "attentionPresetId": "next-same-seed-comparison",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Full-precision Turbo comparison tier."]
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "precision": "fp8-or-mxfp8",
+          "modelPatterns": ["^diffusion_models/.*krea2[_-]?turbo.*(fp8|mxfp8).*\\.safetensors$"],
+          "steps": 8,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Default candidate for the 5090 after workflow validation."]
+        },
+        {
+          "id": "speed",
+          "label": "Speed",
+          "precision": "int8-convrot",
+          "modelPatterns": [
+            "^diffusion_models/.*krea2[_-]?turbo.*int8[_-]?convrot.*\\.safetensors$"
+          ],
+          "steps": 8,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Speed candidate; compare fine text and skin detail against balanced."]
+        }
+      ]
+    },
+    {
+      "profileId": "krea2-raw",
+      "vramGuidance": {
+        "minimumVramMiB": null,
+        "recommendedVramMiB": null,
+        "confidence": "target-validation-required",
+        "sourceUrl": "https://docs.comfy.org/tutorials/image/krea/krea-2",
+        "notes": [
+          "RAW is training and flexibility oriented; batch size and optimizer dominate training memory."
+        ]
+      },
+      "tiers": [
+        {
+          "id": "quality",
+          "label": "Quality",
+          "precision": "bf16-or-fp16",
+          "modelPatterns": [
+            "^diffusion_models/.*krea2[_-]?(raw|base).*(bf16|fp16).*\\.safetensors$"
+          ],
+          "steps": 52,
+          "attentionPresetId": "next-same-seed-comparison",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Official non-distilled inference and LoRA training reference tier."]
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "precision": "fp8",
+          "modelPatterns": ["^diffusion_models/.*krea2[_-]?(raw|base).*fp8.*\\.safetensors$"],
+          "steps": 52,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "experimental-option",
+          "notes": ["Inference-only candidate; not the training baseline."]
+        },
+        {
+          "id": "speed",
+          "label": "Speed",
+          "precision": "use-krea2-turbo",
+          "modelPatterns": [],
+          "steps": 8,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": [
+            "Speed work should switch to the separate Krea2 Turbo profile instead of relabeling RAW."
+          ]
+        }
+      ]
+    },
+    {
+      "profileId": "wan22-animate",
+      "vramGuidance": {
+        "minimumVramMiB": null,
+        "recommendedVramMiB": null,
+        "confidence": "target-validation-required",
+        "sourceUrl": "https://docs.comfy.org/tutorials/video/wan/wan2-2-animate",
+        "notes": ["Record frame count, resolution and preprocessing memory with every benchmark."]
+      },
+      "tiers": [
+        {
+          "id": "quality",
+          "label": "Quality",
+          "precision": "bf16-or-fp16",
+          "modelPatterns": [
+            "^diffusion_models/.*wan2[_-]?2.*animate.*(bf16|fp16).*\\.safetensors$"
+          ],
+          "steps": null,
+          "attentionPresetId": "next-same-seed-comparison",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Full-precision reference tier."]
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "precision": "fp8-scaled",
+          "modelPatterns": ["^diffusion_models/.*wan2[_-]?2.*animate.*fp8.*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["The existing shared-library checkpoint satisfies the inventory gate."]
+        },
+        {
+          "id": "speed",
+          "label": "Speed",
+          "precision": "quantized-plus-distillation-lora",
+          "modelPatterns": ["^diffusion_models/.*wan2[_-]?2.*animate.*int8.*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "experimental-option",
+          "notes": ["Distillation LoRA and sampler settings are part of the benchmark identity."]
+        }
+      ]
+    },
+    {
+      "profileId": "wan-animate-2",
+      "vramGuidance": {
+        "minimumVramMiB": null,
+        "recommendedVramMiB": null,
+        "confidence": "target-validation-required",
+        "sourceUrl": "https://huggingface.co/Comfy-Org/Wan-Animate-2",
+        "notes": [
+          "The official workflow currently centers on an int8 ConvRot checkpoint; no universal floor is inferred."
+        ]
+      },
+      "tiers": [
+        {
+          "id": "quality",
+          "label": "Quality",
+          "precision": "official-full-precision-when-available",
+          "modelPatterns": [
+            "^diffusion_models/.*wan[_-]?animate[_-]?2.*(bf16|fp16).*\\.safetensors$"
+          ],
+          "steps": null,
+          "attentionPresetId": "next-same-seed-comparison",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "experimental-option",
+          "notes": ["No promotion without an official checkpoint and comparison workflow."]
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "precision": "fp8",
+          "modelPatterns": ["^diffusion_models/.*wan[_-]?animate[_-]?2.*fp8.*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "experimental-option",
+          "notes": ["Candidate only."]
+        },
+        {
+          "id": "speed",
+          "label": "Speed",
+          "precision": "int8-convrot",
+          "modelPatterns": [
+            "^diffusion_models/.*wan[_-]?animate[_-]?2.*int8[_-]?convrot.*\\.safetensors$"
+          ],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Matches the current official workflow file class."]
+        }
+      ]
+    },
+    {
+      "profileId": "scail2",
+      "vramGuidance": {
+        "minimumVramMiB": null,
+        "recommendedVramMiB": null,
+        "confidence": "target-validation-required",
+        "sourceUrl": "https://github.com/zai-org/SCAIL-2",
+        "notes": [
+          "SAM preprocessing, reference count and video length must be included in peak-memory measurements."
+        ]
+      },
+      "tiers": [
+        {
+          "id": "quality",
+          "label": "Quality",
+          "precision": "fp16",
+          "modelPatterns": ["^diffusion_models/.*scail[_-]?2.*fp16.*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-same-seed-comparison",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Official full-precision reference tier."]
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "precision": "fp8-or-mxfp8",
+          "modelPatterns": ["^diffusion_models/.*scail[_-]?2.*(fp8|mxfp8).*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Existing shared-library files satisfy the inventory gate."]
+        },
+        {
+          "id": "speed",
+          "label": "Speed",
+          "precision": "int8-convrot",
+          "modelPatterns": ["^diffusion_models/.*scail[_-]?2.*int8[_-]?convrot.*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": [
+            "Benchmark with and without optional DPO and distillation LoRAs as separate cases."
+          ]
+        }
+      ]
+    },
+    {
+      "profileId": "flux2-klein-9b",
+      "vramGuidance": {
+        "minimumVramMiB": null,
+        "recommendedVramMiB": null,
+        "confidence": "target-validation-required",
+        "sourceUrl": "https://docs.comfy.org/tutorials/flux/flux-2-klein",
+        "notes": ["The 32 GB RTX 5090 is the target, but no minimum is inferred from one machine."]
+      },
+      "tiers": [
+        {
+          "id": "quality",
+          "label": "Quality",
+          "precision": "bf16-base",
+          "modelPatterns": ["^diffusion_models/.*flux.?2.*klein.*9b.*(bf16|base).*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-same-seed-comparison",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Base/full-precision comparison tier."]
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "precision": "fp8-distilled",
+          "modelPatterns": ["^diffusion_models/.*flux.?2.*klein.*9b.*fp8.*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Daily quality-first candidate on the 5090."]
+        },
+        {
+          "id": "speed",
+          "label": "Speed",
+          "precision": "use-4b-distilled",
+          "modelPatterns": [],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Use the separate 4B profile for speed instead of hiding the quality change."]
+        }
+      ]
+    },
+    {
+      "profileId": "flux2-klein-4b",
+      "vramGuidance": {
+        "minimumVramMiB": null,
+        "recommendedVramMiB": null,
+        "observedPeakVramMiB": 8602,
+        "confidence": "official-observation",
+        "sourceUrl": "https://docs.comfy.org/tutorials/flux/flux-2-klein",
+        "notes": [
+          "The official guide reports about 8.4 GB for a distilled 4B example; this is an observation, not a support floor."
+        ]
+      },
+      "tiers": [
+        {
+          "id": "quality",
+          "label": "Quality",
+          "precision": "bf16-base",
+          "modelPatterns": ["^diffusion_models/.*flux.?2.*klein.*base.*4b.*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-same-seed-comparison",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Base 4B comparison tier."]
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "precision": "fp8-base",
+          "modelPatterns": ["^diffusion_models/.*flux.?2.*klein.*base.*4b.*fp8.*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Base-model flexibility with lower storage and memory pressure."]
+        },
+        {
+          "id": "speed",
+          "label": "Speed",
+          "precision": "fp8-distilled",
+          "modelPatterns": ["^diffusion_models/.*flux.?2.*klein.*4b.*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Official speed-first family option."]
+        }
+      ]
+    },
+    {
+      "profileId": "qwen-image-edit-2511",
+      "vramGuidance": {
+        "minimumVramMiB": null,
+        "recommendedVramMiB": null,
+        "confidence": "target-validation-required",
+        "sourceUrl": "https://docs.comfy.org/tutorials/image/qwen/qwen-image-edit",
+        "notes": ["Reference-image count and output resolution are benchmark dimensions."]
+      },
+      "tiers": [
+        {
+          "id": "quality",
+          "label": "Quality",
+          "precision": "bf16",
+          "modelPatterns": ["^diffusion_models/.*qwen_image_edit_2511.*bf16.*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-same-seed-comparison",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Full-precision comparison tier."]
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "precision": "fp8mixed",
+          "modelPatterns": ["^diffusion_models/.*qwen_image_edit_2511.*fp8.*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Existing shared-library checkpoint satisfies the inventory gate."]
+        },
+        {
+          "id": "speed",
+          "label": "Speed",
+          "precision": "fp8-plus-lightning",
+          "modelPatterns": ["^diffusion_models/.*qwen_image_edit_2511.*fp8.*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "experimental-option",
+          "notes": [
+            "Lightning LoRA and sampler settings must be captured in the workflow identity."
+          ]
+        }
+      ]
+    },
+    {
+      "profileId": "qwen-image-2512",
+      "vramGuidance": {
+        "minimumVramMiB": null,
+        "recommendedVramMiB": null,
+        "confidence": "target-validation-required",
+        "sourceUrl": "https://docs.comfy.org/tutorials/image/qwen/qwen-image-2512",
+        "notes": ["Official guidance prefers FP8 for daily use and BF16 for comparison quality."]
+      },
+      "tiers": [
+        {
+          "id": "quality",
+          "label": "Quality",
+          "precision": "bf16",
+          "modelPatterns": ["^diffusion_models/.*qwen_image_2512.*bf16.*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-same-seed-comparison",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Quality comparison tier."]
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "precision": "fp8",
+          "modelPatterns": ["^diffusion_models/.*qwen_image_2512.*fp8.*\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Official daily profile candidate."]
+        },
+        {
+          "id": "speed",
+          "label": "Speed",
+          "precision": "fp8-plus-lightning",
+          "modelPatterns": ["^diffusion_models/.*qwen_image_2512.*fp8.*\\.safetensors$"],
+          "steps": 4,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Requires the official four-step Lightning LoRA as part of the workflow."]
+        }
+      ]
+    },
+    {
+      "profileId": "qwen-image-layered",
+      "vramGuidance": {
+        "minimumVramMiB": null,
+        "recommendedVramMiB": null,
+        "confidence": "target-validation-required",
+        "sourceUrl": "https://docs.comfy.org/tutorials/image/qwen/qwen-image-layered",
+        "notes": [
+          "Official guidance describes the 50-step workflow as slow and recommends 640-pixel input for editing."
+        ]
+      },
+      "tiers": [
+        {
+          "id": "quality",
+          "label": "Quality",
+          "precision": "bf16",
+          "modelPatterns": ["^diffusion_models/.*qwen_image_layered.*bf16.*\\.safetensors$"],
+          "steps": 50,
+          "attentionPresetId": "next-same-seed-comparison",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Official reference tier."]
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "precision": "fp8mixed",
+          "modelPatterns": ["^diffusion_models/.*qwen_image_layered.*fp8.*\\.safetensors$"],
+          "steps": 50,
+          "attentionPresetId": "next-daily-performance",
+          "offloadPolicy": "dynamic-vram",
+          "basis": "official-option",
+          "notes": ["Official lower-memory alternative."]
+        },
+        {
+          "id": "speed",
+          "label": "Speed",
+          "precision": "unverified",
+          "modelPatterns": [],
+          "steps": null,
+          "attentionPresetId": null,
+          "offloadPolicy": "unverified",
+          "basis": "future-unverified",
+          "notes": ["No speed tier is claimed until an official distilled workflow exists."]
+        }
+      ]
+    },
+    {
+      "profileId": "qwen3-tts-plugin",
+      "vramGuidance": {
+        "minimumVramMiB": null,
+        "recommendedVramMiB": null,
+        "confidence": "target-validation-required",
+        "sourceUrl": "https://github.com/QwenLM/Qwen3-TTS",
+        "notes": [
+          "Plugin dependency and real-time factor must be tested before local VRAM guidance is published."
+        ]
+      },
+      "tiers": [
+        {
+          "id": "quality",
+          "label": "Quality",
+          "precision": "1.7b-bf16",
+          "modelPatterns": ["^qwen[-_]tts/.*1\\.7B.*model\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": null,
+          "offloadPolicy": "unverified",
+          "basis": "official-option",
+          "notes": ["Model inventory only; plugin gate remains mandatory."]
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "precision": "0.6b-bf16",
+          "modelPatterns": ["^qwen[-_]tts/.*0\\.6B.*model\\.safetensors$"],
+          "steps": null,
+          "attentionPresetId": null,
+          "offloadPolicy": "unverified",
+          "basis": "official-option",
+          "notes": ["Smaller model candidate."]
+        },
+        {
+          "id": "speed",
+          "label": "Speed",
+          "precision": "quantized-unverified",
+          "modelPatterns": [],
+          "steps": null,
+          "attentionPresetId": null,
+          "offloadPolicy": "unverified",
+          "basis": "future-unverified",
+          "notes": ["No quantized plugin profile is assumed."]
+        }
+      ]
+    },
+    {
+      "profileId": "flux3-official-api",
+      "vramGuidance": {
+        "minimumVramMiB": null,
+        "recommendedVramMiB": null,
+        "confidence": "official-observation",
+        "sourceUrl": "https://github.com/Comfy-Org/workflow_templates/blob/main/templates/api_bfl_flux3_t2v.json",
+        "notes": ["Local VRAM is not the limiting resource for the API profile."]
+      },
+      "tiers": [
+        {
+          "id": "quality",
+          "label": "Quality",
+          "precision": "api-managed",
+          "modelPatterns": [],
+          "steps": null,
+          "attentionPresetId": null,
+          "offloadPolicy": "api-managed",
+          "basis": "api-managed",
+          "notes": ["API parameters define quality."]
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "precision": "api-managed",
+          "modelPatterns": [],
+          "steps": null,
+          "attentionPresetId": null,
+          "offloadPolicy": "api-managed",
+          "basis": "api-managed",
+          "notes": ["API parameters define balance."]
+        },
+        {
+          "id": "speed",
+          "label": "Speed",
+          "precision": "api-managed",
+          "modelPatterns": [],
+          "steps": null,
+          "attentionPresetId": null,
+          "offloadPolicy": "api-managed",
+          "basis": "api-managed",
+          "notes": ["API parameters define speed; local backend flags do not apply."]
+        }
+      ]
+    },
+    {
+      "profileId": "flux3-local-watcher",
+      "vramGuidance": {
+        "minimumVramMiB": null,
+        "recommendedVramMiB": null,
+        "confidence": "future-unverified",
+        "notes": ["No local requirement is invented before an official release."]
+      },
+      "tiers": [
+        {
+          "id": "quality",
+          "label": "Quality",
+          "precision": "unverified",
+          "modelPatterns": [],
+          "steps": null,
+          "attentionPresetId": null,
+          "offloadPolicy": "unverified",
+          "basis": "future-unverified",
+          "notes": []
+        },
+        {
+          "id": "balanced",
+          "label": "Balanced",
+          "precision": "unverified",
+          "modelPatterns": [],
+          "steps": null,
+          "attentionPresetId": null,
+          "offloadPolicy": "unverified",
+          "basis": "future-unverified",
+          "notes": []
+        },
+        {
+          "id": "speed",
+          "label": "Speed",
+          "precision": "unverified",
+          "modelPatterns": [],
+          "steps": null,
+          "attentionPresetId": null,
+          "offloadPolicy": "unverified",
+          "basis": "future-unverified",
+          "notes": []
+        }
+      ]
+    }
+  ]
+}

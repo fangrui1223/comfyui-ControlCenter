@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "acceptedAt": "2026-08-16T07:02:00Z",
+  "target": "C:\\FR_comfyui_next",
+  "catalogs": {
+    "capabilities": "resources/fr-model-capabilities.v1.json",
+    "performanceProfiles": "resources/fr-model-performance-profiles.v1.json",
+    "actualReport": "C:\\FR_comfyui_cache\\catalogs\\model-capabilities.json"
+  },
+  "inventory": {
+    "root": "C:\\FR_comfyui\\models",
+    "fileCount": 2044,
+    "reparsePointsFollowed": 0,
+    "modelWrites": 0
+  },
+  "capabilitySummary": {
+    "ready": 5,
+    "partial": 5,
+    "missing-models": 1,
+    "plugin-required": 1,
+    "api-only": 1,
+    "future-unverified": 1
+  },
+  "readyProfiles": [
+    "krea2-turbo",
+    "wan22-animate",
+    "scail2",
+    "flux2-klein-9b",
+    "qwen-image-edit-2511"
+  ],
+  "missingProfiles": {
+    "minimax-h3-local": [
+      "diffusion-model",
+      "text-encoder",
+      "video-vae",
+      "audio-vae"
+    ],
+    "krea2-raw": ["diffusion-model"],
+    "wan-animate-2": ["diffusion-model"],
+    "flux2-klein-4b": ["diffusion-model", "text-encoder"],
+    "qwen-image-2512": ["diffusion-model"],
+    "qwen-image-layered": ["diffusion-model", "vae"]
+  },
+  "performance": {
+    "dailyPreset": "next-daily-performance",
+    "arguments": [
+      "--enable-triton-backend",
+      "--use-pytorch-cross-attention",
+      "--disable-xformers"
+    ],
+    "quickTest": "pass",
+    "quickTestLog": "C:\\FR_comfyui_cache\\probes\\m7-next-daily-performance-quick-test.log",
+    "tritonBackend": "enabled",
+    "attentionBackend": "pytorch-sdpa",
+    "dynamicVram": "enabled",
+    "xformers": "disabled-and-absent",
+    "sageattention": "lab-only"
+  },
+  "workflowBenchmarkGate": {
+    "definedTiers": 42,
+    "inventoryAvailableTiers": 14,
+    "passedWorkflowBenchmarks": 0,
+    "mainEnvironmentRecommendedTiers": 0,
+    "policy": "inventory availability never implies workflow validation"
+  },
+  "boundaries": {
+    "stableEnvironmentModified": false,
+    "sharedModelLibraryModified": false,
+    "pluginsInstalled": 0,
+    "modelsDownloaded": 0,
+    "flux3LocalRequirementsInvented": false
+  }
+}
