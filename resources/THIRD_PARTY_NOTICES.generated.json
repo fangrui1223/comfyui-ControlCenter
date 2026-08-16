@@ -1,0 +1,748 @@
+{
+  "schemaVersion": 1,
+  "product": {
+    "name": "fr-comfyui-control-center",
+    "version": "1.0.39"
+  },
+  "generatedFrom": "pnpm licenses list --prod --json",
+  "lockfileSha256": "84f73c83cb4ca621a13a3964733386284c9ed726ab66586fde86b71f7c62a8c9",
+  "scope": "production npm dependency inventory",
+  "notice": "This generated inventory supplements, but does not replace, package license files and independent release legal review.",
+  "licenses": [
+    {
+      "license": "0BSD",
+      "packages": [
+        {
+          "name": "tslib",
+          "versions": [
+            "2.8.1"
+          ],
+          "homepage": "https://www.typescriptlang.org/"
+        }
+      ]
+    },
+    {
+      "license": "Apache-2.0",
+      "packages": [
+        {
+          "name": "@datadog/browser-core",
+          "versions": [
+            "6.28.1"
+          ],
+          "homepage": "https://github.com/DataDog/browser-sdk#readme"
+        },
+        {
+          "name": "@datadog/browser-rum-core",
+          "versions": [
+            "6.28.1"
+          ],
+          "homepage": "https://github.com/DataDog/browser-sdk#readme"
+        },
+        {
+          "name": "@datadog/browser-rum",
+          "versions": [
+            "6.28.1"
+          ],
+          "homepage": "https://github.com/DataDog/browser-sdk#readme"
+        },
+        {
+          "name": "human-signals",
+          "versions": [
+            "2.1.0"
+          ],
+          "homepage": "https://git.io/JeluP"
+        },
+        {
+          "name": "rxjs",
+          "versions": [
+            "7.8.2"
+          ],
+          "homepage": "https://rxjs.dev"
+        }
+      ]
+    },
+    {
+      "license": "BlueOak-1.0.0",
+      "packages": [
+        {
+          "name": "chownr",
+          "versions": [
+            "3.0.0"
+          ],
+          "homepage": "https://github.com/isaacs/chownr#readme"
+        },
+        {
+          "name": "minipass",
+          "versions": [
+            "7.1.3"
+          ],
+          "homepage": "https://github.com/isaacs/minipass#readme"
+        },
+        {
+          "name": "sax",
+          "versions": [
+            "1.4.4"
+          ],
+          "homepage": "https://github.com/isaacs/sax-js#readme"
+        },
+        {
+          "name": "tar",
+          "versions": [
+            "7.5.11"
+          ],
+          "homepage": "https://github.com/isaacs/node-tar#readme"
+        },
+        {
+          "name": "yallist",
+          "versions": [
+            "5.0.0"
+          ],
+          "homepage": "https://github.com/isaacs/yallist#readme"
+        }
+      ]
+    },
+    {
+      "license": "BSD-3-Clause",
+      "packages": [
+        {
+          "name": "smol-toml",
+          "versions": [
+            "1.6.1"
+          ],
+          "homepage": "https://github.com/squirrelchat/smol-toml#readme"
+        }
+      ]
+    },
+    {
+      "license": "ISC",
+      "packages": [
+        {
+          "name": "@isaacs/fs-minipass",
+          "versions": [
+            "4.0.1"
+          ],
+          "homepage": "https://github.com/npm/fs-minipass#readme"
+        },
+        {
+          "name": "fastq",
+          "versions": [
+            "1.20.1"
+          ],
+          "homepage": "https://github.com/mcollina/fastq#readme"
+        },
+        {
+          "name": "fs.realpath",
+          "versions": [
+            "1.0.0"
+          ],
+          "homepage": "https://github.com/isaacs/fs.realpath#readme"
+        },
+        {
+          "name": "glob-parent",
+          "versions": [
+            "5.1.2"
+          ],
+          "homepage": "https://github.com/gulpjs/glob-parent#readme"
+        },
+        {
+          "name": "glob",
+          "versions": [
+            "7.2.3"
+          ],
+          "homepage": "https://github.com/isaacs/node-glob#readme"
+        },
+        {
+          "name": "graceful-fs",
+          "versions": [
+            "4.2.11"
+          ],
+          "homepage": "https://github.com/isaacs/node-graceful-fs#readme"
+        },
+        {
+          "name": "inflight",
+          "versions": [
+            "1.0.6"
+          ],
+          "homepage": "https://github.com/isaacs/inflight"
+        },
+        {
+          "name": "inherits",
+          "versions": [
+            "2.0.4"
+          ],
+          "homepage": "https://github.com/isaacs/inherits#readme"
+        },
+        {
+          "name": "isexe",
+          "versions": [
+            "2.0.0"
+          ],
+          "homepage": "https://github.com/isaacs/isexe#readme"
+        },
+        {
+          "name": "minimatch",
+          "versions": [
+            "3.1.5"
+          ],
+          "homepage": "https://github.com/isaacs/minimatch#readme"
+        },
+        {
+          "name": "once",
+          "versions": [
+            "1.4.0"
+          ],
+          "homepage": "https://github.com/isaacs/once#readme"
+        },
+        {
+          "name": "rimraf",
+          "versions": [
+            "3.0.2"
+          ],
+          "homepage": "https://github.com/isaacs/rimraf#readme"
+        },
+        {
+          "name": "semver",
+          "versions": [
+            "7.7.4"
+          ],
+          "homepage": "https://github.com/npm/node-semver#readme"
+        },
+        {
+          "name": "signal-exit",
+          "versions": [
+            "3.0.7"
+          ],
+          "homepage": "https://github.com/tapjs/signal-exit"
+        },
+        {
+          "name": "which",
+          "versions": [
+            "2.0.2"
+          ],
+          "homepage": "https://github.com/isaacs/node-which#readme"
+        },
+        {
+          "name": "wrappy",
+          "versions": [
+            "1.0.2"
+          ],
+          "homepage": "https://github.com/npm/wrappy"
+        },
+        {
+          "name": "yaml",
+          "versions": [
+            "2.9.0"
+          ],
+          "homepage": "https://eemeli.org/yaml/"
+        }
+      ]
+    },
+    {
+      "license": "MIT",
+      "packages": [
+        {
+          "name": "@nodelib/fs.scandir",
+          "versions": [
+            "2.1.5"
+          ],
+          "homepage": "https://github.com/nodelib/nodelib/tree/master#readme"
+        },
+        {
+          "name": "@nodelib/fs.stat",
+          "versions": [
+            "2.0.5"
+          ],
+          "homepage": "https://github.com/nodelib/nodelib/tree/master#readme"
+        },
+        {
+          "name": "@nodelib/fs.walk",
+          "versions": [
+            "1.2.8"
+          ],
+          "homepage": "https://github.com/nodelib/nodelib/tree/master#readme"
+        },
+        {
+          "name": "@posthog/core",
+          "versions": [
+            "1.27.8"
+          ],
+          "homepage": "https://github.com/PostHog/posthog-js#readme"
+        },
+        {
+          "name": "@posthog/types",
+          "versions": [
+            "1.372.4"
+          ],
+          "homepage": "https://github.com/PostHog/posthog-js#readme"
+        },
+        {
+          "name": "@todesktop/runtime",
+          "versions": [
+            "2.1.3"
+          ],
+          "homepage": "https://todesktop.com/electron"
+        },
+        {
+          "name": "@xterm/addon-fit",
+          "versions": [
+            "0.10.0"
+          ],
+          "homepage": "https://github.com/xtermjs/xterm.js/tree/master#readme"
+        },
+        {
+          "name": "@xterm/xterm",
+          "versions": [
+            "5.5.0"
+          ],
+          "homepage": "https://github.com/xtermjs/xterm.js#readme"
+        },
+        {
+          "name": "7zip-bin",
+          "versions": [
+            "5.2.0"
+          ],
+          "homepage": "https://github.com/develar/7zip-bin#readme"
+        },
+        {
+          "name": "aggregate-error",
+          "versions": [
+            "3.1.0"
+          ],
+          "homepage": "https://github.com/sindresorhus/aggregate-error#readme"
+        },
+        {
+          "name": "array-union",
+          "versions": [
+            "2.1.0"
+          ],
+          "homepage": "https://github.com/sindresorhus/array-union#readme"
+        },
+        {
+          "name": "balanced-match",
+          "versions": [
+            "1.0.2"
+          ],
+          "homepage": "https://github.com/juliangruber/balanced-match"
+        },
+        {
+          "name": "brace-expansion",
+          "versions": [
+            "1.1.12"
+          ],
+          "homepage": "https://github.com/juliangruber/brace-expansion"
+        },
+        {
+          "name": "braces",
+          "versions": [
+            "3.0.3"
+          ],
+          "homepage": "https://github.com/micromatch/braces"
+        },
+        {
+          "name": "builder-util-runtime",
+          "versions": [
+            "9.5.1"
+          ],
+          "homepage": "https://github.com/electron-userland/electron-builder"
+        },
+        {
+          "name": "clean-stack",
+          "versions": [
+            "2.2.0"
+          ],
+          "homepage": "https://github.com/sindresorhus/clean-stack#readme"
+        },
+        {
+          "name": "concat-map",
+          "versions": [
+            "0.0.1"
+          ],
+          "homepage": "https://github.com/substack/node-concat-map#readme"
+        },
+        {
+          "name": "cross-spawn",
+          "versions": [
+            "7.0.6"
+          ],
+          "homepage": "https://github.com/moxystudio/node-cross-spawn"
+        },
+        {
+          "name": "debug",
+          "versions": [
+            "4.4.3"
+          ],
+          "homepage": "https://github.com/debug-js/debug#readme"
+        },
+        {
+          "name": "del",
+          "versions": [
+            "6.1.1"
+          ],
+          "homepage": "https://github.com/sindresorhus/del#readme"
+        },
+        {
+          "name": "dir-glob",
+          "versions": [
+            "3.0.1"
+          ],
+          "homepage": "https://github.com/kevva/dir-glob#readme"
+        },
+        {
+          "name": "electron-updater",
+          "versions": [
+            "6.8.3"
+          ],
+          "homepage": "https://github.com/electron-userland/electron-builder"
+        },
+        {
+          "name": "eventemitter2",
+          "versions": [
+            "6.4.9"
+          ],
+          "homepage": "https://github.com/hij1nx/EventEmitter2#readme"
+        },
+        {
+          "name": "execa",
+          "versions": [
+            "5.1.1"
+          ],
+          "homepage": "https://github.com/sindresorhus/execa#readme"
+        },
+        {
+          "name": "fast-glob",
+          "versions": [
+            "3.3.3"
+          ],
+          "homepage": "https://github.com/mrmlnc/fast-glob#readme"
+        },
+        {
+          "name": "fill-range",
+          "versions": [
+            "7.1.1"
+          ],
+          "homepage": "https://github.com/jonschlinkert/fill-range"
+        },
+        {
+          "name": "fs-extra",
+          "versions": [
+            "10.1.0"
+          ],
+          "homepage": "https://github.com/jprichardson/node-fs-extra"
+        },
+        {
+          "name": "get-stream",
+          "versions": [
+            "6.0.1"
+          ],
+          "homepage": "https://github.com/sindresorhus/get-stream#readme"
+        },
+        {
+          "name": "globby",
+          "versions": [
+            "11.1.0"
+          ],
+          "homepage": "https://github.com/sindresorhus/globby#readme"
+        },
+        {
+          "name": "ignore",
+          "versions": [
+            "5.3.2"
+          ],
+          "homepage": "https://github.com/kaelzhang/node-ignore#readme"
+        },
+        {
+          "name": "indent-string",
+          "versions": [
+            "4.0.0"
+          ],
+          "homepage": "https://github.com/sindresorhus/indent-string#readme"
+        },
+        {
+          "name": "is-extglob",
+          "versions": [
+            "2.1.1"
+          ],
+          "homepage": "https://github.com/jonschlinkert/is-extglob"
+        },
+        {
+          "name": "is-glob",
+          "versions": [
+            "4.0.3"
+          ],
+          "homepage": "https://github.com/micromatch/is-glob"
+        },
+        {
+          "name": "is-number",
+          "versions": [
+            "7.0.0"
+          ],
+          "homepage": "https://github.com/jonschlinkert/is-number"
+        },
+        {
+          "name": "is-path-cwd",
+          "versions": [
+            "2.2.0"
+          ],
+          "homepage": "https://github.com/sindresorhus/is-path-cwd#readme"
+        },
+        {
+          "name": "is-path-inside",
+          "versions": [
+            "3.0.3"
+          ],
+          "homepage": "https://github.com/sindresorhus/is-path-inside#readme"
+        },
+        {
+          "name": "is-stream",
+          "versions": [
+            "2.0.1"
+          ],
+          "homepage": "https://github.com/sindresorhus/is-stream#readme"
+        },
+        {
+          "name": "js-yaml",
+          "versions": [
+            "4.1.1"
+          ],
+          "homepage": "https://github.com/nodeca/js-yaml#readme"
+        },
+        {
+          "name": "jsonfile",
+          "versions": [
+            "6.2.0"
+          ],
+          "homepage": "https://github.com/jprichardson/node-jsonfile#readme"
+        },
+        {
+          "name": "lazy-val",
+          "versions": [
+            "1.0.5"
+          ],
+          "homepage": "https://github.com/develar/lazy-val"
+        },
+        {
+          "name": "lodash.escaperegexp",
+          "versions": [
+            "4.1.2"
+          ],
+          "homepage": "https://lodash.com/"
+        },
+        {
+          "name": "lodash.isequal",
+          "versions": [
+            "4.5.0"
+          ],
+          "homepage": "https://lodash.com/"
+        },
+        {
+          "name": "lodash.once",
+          "versions": [
+            "4.1.1"
+          ],
+          "homepage": "https://lodash.com/"
+        },
+        {
+          "name": "merge-stream",
+          "versions": [
+            "2.0.0"
+          ],
+          "homepage": "https://github.com/grncdr/merge-stream#readme"
+        },
+        {
+          "name": "merge2",
+          "versions": [
+            "1.4.1"
+          ],
+          "homepage": "https://github.com/teambition/merge2"
+        },
+        {
+          "name": "micromatch",
+          "versions": [
+            "4.0.8"
+          ],
+          "homepage": "https://github.com/micromatch/micromatch"
+        },
+        {
+          "name": "mimic-fn",
+          "versions": [
+            "2.1.0"
+          ],
+          "homepage": "https://github.com/sindresorhus/mimic-fn#readme"
+        },
+        {
+          "name": "minizlib",
+          "versions": [
+            "3.1.0"
+          ],
+          "homepage": "https://github.com/isaacs/minizlib#readme"
+        },
+        {
+          "name": "ms",
+          "versions": [
+            "2.1.3"
+          ],
+          "homepage": "https://github.com/vercel/ms#readme"
+        },
+        {
+          "name": "node-addon-api",
+          "versions": [
+            "7.1.1"
+          ],
+          "homepage": "https://github.com/nodejs/node-addon-api"
+        },
+        {
+          "name": "node-pty",
+          "versions": [
+            "1.1.0"
+          ],
+          "homepage": "https://github.com/microsoft/node-pty"
+        },
+        {
+          "name": "npm-run-path",
+          "versions": [
+            "4.0.1"
+          ],
+          "homepage": "https://github.com/sindresorhus/npm-run-path#readme"
+        },
+        {
+          "name": "onetime",
+          "versions": [
+            "5.1.2"
+          ],
+          "homepage": "https://github.com/sindresorhus/onetime#readme"
+        },
+        {
+          "name": "p-map",
+          "versions": [
+            "4.0.0"
+          ],
+          "homepage": "https://github.com/sindresorhus/p-map#readme"
+        },
+        {
+          "name": "path-is-absolute",
+          "versions": [
+            "1.0.1"
+          ],
+          "homepage": "https://github.com/sindresorhus/path-is-absolute#readme"
+        },
+        {
+          "name": "path-key",
+          "versions": [
+            "3.1.1"
+          ],
+          "homepage": "https://github.com/sindresorhus/path-key#readme"
+        },
+        {
+          "name": "path-type",
+          "versions": [
+            "4.0.0"
+          ],
+          "homepage": "https://github.com/sindresorhus/path-type#readme"
+        },
+        {
+          "name": "picomatch",
+          "versions": [
+            "2.3.1"
+          ],
+          "homepage": "https://github.com/micromatch/picomatch"
+        },
+        {
+          "name": "posthog-node",
+          "versions": [
+            "5.30.7"
+          ],
+          "homepage": "https://github.com/PostHog/posthog-js#readme"
+        },
+        {
+          "name": "queue-microtask",
+          "versions": [
+            "1.2.3"
+          ],
+          "homepage": "https://github.com/feross/queue-microtask"
+        },
+        {
+          "name": "reusify",
+          "versions": [
+            "1.1.0"
+          ],
+          "homepage": "https://github.com/mcollina/reusify#readme"
+        },
+        {
+          "name": "run-parallel",
+          "versions": [
+            "1.2.0"
+          ],
+          "homepage": "https://github.com/feross/run-parallel"
+        },
+        {
+          "name": "shebang-command",
+          "versions": [
+            "2.0.0"
+          ],
+          "homepage": "https://github.com/kevva/shebang-command#readme"
+        },
+        {
+          "name": "shebang-regex",
+          "versions": [
+            "3.0.0"
+          ],
+          "homepage": "https://github.com/sindresorhus/shebang-regex#readme"
+        },
+        {
+          "name": "slash",
+          "versions": [
+            "3.0.0"
+          ],
+          "homepage": "https://github.com/sindresorhus/slash#readme"
+        },
+        {
+          "name": "strip-final-newline",
+          "versions": [
+            "2.0.0"
+          ],
+          "homepage": "https://github.com/sindresorhus/strip-final-newline#readme"
+        },
+        {
+          "name": "systeminformation",
+          "versions": [
+            "5.31.5"
+          ],
+          "homepage": "https://systeminformation.io"
+        },
+        {
+          "name": "tiny-typed-emitter",
+          "versions": [
+            "2.1.0"
+          ],
+          "homepage": "https://github.com/binier/tiny-typed-emitter#readme"
+        },
+        {
+          "name": "to-regex-range",
+          "versions": [
+            "5.0.1"
+          ],
+          "homepage": "https://github.com/micromatch/to-regex-range"
+        },
+        {
+          "name": "universalify",
+          "versions": [
+            "2.0.1"
+          ],
+          "homepage": "https://github.com/RyanZim/universalify#readme"
+        }
+      ]
+    },
+    {
+      "license": "Python-2.0",
+      "packages": [
+        {
+          "name": "argparse",
+          "versions": [
+            "2.0.1"
+          ],
+          "homepage": "https://github.com/nodeca/argparse#readme"
+        }
+      ]
+    }
+  ]
+}

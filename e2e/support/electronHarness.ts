@@ -265,9 +265,15 @@ export async function launchLauncherApp(options?: SeedOptions): Promise<Launcher
     env['E2E_INSTALLATIONS_SEED'] = JSON.stringify(seedRecords)
   }
 
+  // Managed Windows build hosts can prohibit executing an unsigned test binary
+  // from the source volume even though the same verified Electron bundle runs
+  // from a system-local test cache. Keep that host concern explicit and
+  // opt-in; normal developer and CI launches continue to use pnpm's Electron.
+  const executablePath = process.env['E2E_ELECTRON_EXECUTABLE']
   const application = await electron.launch({
     args,
-    env
+    env,
+    ...(executablePath ? { executablePath } : {})
   })
 
   // Under Playwright the ready-to-show event may fire but isVisible() can lag,

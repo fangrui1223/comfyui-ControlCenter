@@ -38,6 +38,7 @@
     "bridge-types:gen": "pnpm exec tsc -p tsconfig.comfy-desktop-bridge-types.json",
     "font:fetch": "node scripts/fetch-font.mjs",
     "sandbox:gen": "node scripts/generate-sandbox.mjs",
+    "notices:generate": "node scripts/fr-generate-third-party-notices.mjs",
     "datadog:sourcemaps:upload": "node ./scripts/upload-datadog-sourcemaps.mjs",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

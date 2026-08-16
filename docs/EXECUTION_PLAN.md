@@ -47,21 +47,21 @@
 - 定义 stable/next/lab 配置模型，不自动探测后立即接管现有目录。
 - 提供“只读导入现有环境”与明确授权的“纳入管理”两种路径。
 
-### M2 — 环境与路径编排
+### M2 — 环境与路径编排（已完成）
 
 - 实现目录预检、磁盘空间、权限、长路径、符号链接权限和 NVIDIA 驱动探测。
 - 创建 next/lab 时使用 staging 目录，成功后原子切换。
 - 将 Python、ComfyUI Core、frontend、Manager、user、custom_nodes、output 和缓存路径分层展示。
 - 任何创建动作先生成可审阅的 dry-run 计划。
 
-### M3 — 新技术运行时与能力目录
+### M3 — 新技术运行时与能力目录（已完成）
 
 - 首个候选主栈以 `Python 3.13 + Torch 2.12.1/cu130` 作为待验证目标，不在代码中假定其必然兼容全部节点。
 - 建立 RTX 5090/Blackwell 实机探针：SM120、BF16/FP8、CUDA runtime、内核加载、显存与 attention 后端。
 - 分离 stable、preview、experimental 三个渠道；新 PyTorch/CUDA 先在 lab 验证。
 - 对 Triton、SageAttention、xFormers、Flash Attention、TensorRT 等编译扩展记录 ABI 与 wheel 来源。
 
-### M4 — 共享模型映射层
+### M4 — 共享模型映射层（已完成）
 
 - 扫描 `C:\FR_comfyui\models`，生成只读清单，不移动模型。
 - 标准类别生成 `extra_model_paths.yaml`；插件私有类别使用受控目录 junction/symlink。
@@ -69,7 +69,7 @@
 - 映射前检查目标存在、同名冲突、链接环、跨卷能力和权限；提供撤销清单。
 - UI 展示真实位置、逻辑位置、占用空间和引用它的环境/插件。
 
-### M5 — 插件与依赖管理
+### M5 — 插件与依赖管理（已完成）
 
 - 在统一 UI 中编排 Manager v4，而不是复制一套互相竞争的节点管理后端。
 - 展示插件 Git 来源、提交、分支、更新、Python 依赖、前端扩展、编译扩展和风险等级。
@@ -77,14 +77,14 @@
 - 支持冻结、忽略、替换和淘汰旧节点；将“不兼容 Python 3.13/新 Torch/新前端”的旧节点隔离到 stable 或 lab。
 - 建立替代建议，但绝不未经确认删除插件或用户工作流。
 
-### M6 — 分层更新、快照与回退
+### M6 — 分层更新、快照与回退（已完成）
 
 - Core、frontend、Manager、Python/Torch 栈、插件、模型清单分别检查和更新。
 - 支持版本锁、发布说明、风险提示、下载校验、断点续传和离线包。
 - 更新事务包含 before/after 状态、日志、失败恢复和重启验证。
 - 对官方 Desktop 上游更新建立可重复的 fetch/rebase-or-merge/测试流程。
 
-### M7 — 模型/工作流性能配置
+### M7 — 模型/工作流性能配置（已完成）
 
 - 能力目录按模型家族描述文本编码器、VAE、精度、attention、offload、量化和最小/推荐显存。
 - 为 Wan Animate、SCAIL2、MiniMax H3、Krea2、FLUX.2 Klein、后续 FLUX、Qwen 系列建立可更新配置模板。
@@ -92,7 +92,7 @@
 - 基准测试记录冷/热启动、首帧、总耗时、峰值 VRAM/RAM、编译缓存命中和输出一致性。
 - 只有通过目标工作流实测的组合才能标记为“主环境推荐”。
 
-### M8 — 安全、E2E、发布与迁移
+### M8 — 安全、E2E、发布与迁移（已完成：内部未签名候选）
 
 - 覆盖安装、创建环境、模型映射、节点更新、失败回退和卸载的 Windows E2E。
 - 用合成目录和测试模型验证，不读取或改动真实模型库。

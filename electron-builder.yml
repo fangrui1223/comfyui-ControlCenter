@@ -3,6 +3,10 @@ productName: FR ComfyUI Control Center
 directories:
   buildResources: resources
 files:
+  - '!.pnpm-store/**/*'
+  - '!test-results/**/*'
+  - '!playwright-report/**/*'
+  - '!.codex-bin/**/*'
   - '!**/.vscode/*'
   - '!src/*'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
@@ -17,6 +21,8 @@ files:
 extraResources:
   - from: lib
     to: lib
+  - from: resources/THIRD_PARTY_NOTICES.generated.json
+    to: THIRD_PARTY_NOTICES.generated.json
 asarUnpack:
   - node_modules/7zip-bin/**/*
   - node_modules/node-pty/**/*

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "milestone": "M8",
+  "evaluatedAt": "2026-08-16T15:55:00+08:00",
+  "status": "internal-unsigned-candidate",
+  "version": "1.0.39",
+  "identity": {
+    "productName": "FR ComfyUI Control Center",
+    "appId": "ai.fr.comfyui.controlcenter",
+    "artifactName": "FR-ComfyUI-ControlCenter-1.0.39-win-x64.exe"
+  },
+  "tests": {
+    "typecheck": "pass",
+    "lint": "pass",
+    "formatCheck": "pass",
+    "unit": {
+      "status": "pass",
+      "files": 264,
+      "tests": 4391,
+      "retries": 0
+    },
+    "integration": {
+      "status": "pass",
+      "files": 7,
+      "tests": 46,
+      "retries": 0
+    },
+    "windowsE2e": {
+      "status": "pass",
+      "passed": 80,
+      "skipped": 1,
+      "failed": 0,
+      "retries": 0,
+      "skipReason": "Host PowerShell installation cannot load Microsoft.PowerShell.Diagnostics Get-Counter for the optional GPU VRAM comparison."
+    },
+    "packagedSmoke": {
+      "status": "blocked-host-policy",
+      "reason": "Managed host runs the unchanged official Electron binary but freezes resource-modified unsigned executables. Re-run after configuring an FR signing identity."
+    }
+  },
+  "artifact": {
+    "path": "dist/FR-ComfyUI-ControlCenter-1.0.39-win-x64.exe",
+    "bytes": 181901156,
+    "sha256": "C0A2140450988C0B24D587E49BC3D3F19E3B68DBA73F532252B6FAD1FFAAA3F3",
+    "authenticode": "NotSigned",
+    "productionBuild": "pass",
+    "nsisBuild": "pass"
+  },
+  "thirdPartyNotices": {
+    "status": "generated-and-packaged",
+    "licenseGroups": 7,
+    "sha256": "3889AA4385262F5B8989197E43644B4FD6554D16F81735DF58A229C5296B2FAB",
+    "pnpmStorePackaged": false
+  },
+  "safety": {
+    "stableInstallationMutated": false,
+    "sharedModelLibraryMutated": false,
+    "syntheticLifecyclePassed": true,
+    "recoveryManualPresent": true,
+    "upstreamFetchUrl": "https://github.com/Comfy-Org/Comfy-Desktop.git",
+    "upstreamPushUrl": "DISABLED",
+    "userOriginConfigured": false
+  },
+  "publicBlockers": [
+    "source-license-and-brand-review",
+    "windows-code-signing",
+    "fr-update-provider",
+    "user-owned-origin",
+    "signed-package-smoke-and-installer-uninstaller-test"
+  ]
+}
