@@ -62,7 +62,57 @@
   LangString perMachineInstallExists 1033 "$(^Name) is already installed for all users.$\r$\n"
   LangString perMachineInstall 1033 "$(^Name) is installed for all users.$\r$\n"
   LangString reinstallUpgrade 1033 "Setup will update your existing installation."
+  LangString perUserInstallExists 2052 "$(^Name) 已安装到当前用户。$\r$\n"
+  LangString perUserInstall 2052 "$(^Name) 将安装到当前用户。$\r$\n"
+  LangString perMachineInstallExists 2052 "$(^Name) 已为这台电脑的所有用户安装。$\r$\n"
+  LangString perMachineInstall 2052 "$(^Name) 将为这台电脑的所有用户安装。$\r$\n"
+  LangString reinstallUpgrade 2052 "安装程序将更新现有版本。"
   !pragma warning enable 6030
+
+  ; FR-owned installer strings. Keep the 1033/2052 pairs together: the
+  ; localization unit test treats a missing pair as a release-blocking error.
+  LangString FRVcStep 1033 "Step 1 of 3: Microsoft Visual C++ Redistributable"
+  LangString FRVcStep 2052 "第 1 步（共 3 步）：Microsoft Visual C++ 运行库"
+  LangString FRDetectedVersion 1033 "  Detected installed version: $1"
+  LangString FRDetectedVersion 2052 "  检测到的已安装版本：$1"
+  LangString FRBundledVersion 1033 "  Bundled version: ${VC_REDIST_VERSION}"
+  LangString FRBundledVersion 2052 "  安装包内置版本：${VC_REDIST_VERSION}"
+  LangString FRInstallingVc 1033 "  Installing Microsoft Visual C++ Redistributable (this may take several minutes)..."
+  LangString FRInstallingVc 2052 "  正在安装 Microsoft Visual C++ 运行库（可能需要几分钟）……"
+  LangString FRVcDeclined 1033 "Microsoft Visual C++ Redistributable was not installed (permission prompt declined)."
+  LangString FRVcDeclined 2052 "Microsoft Visual C++ 运行库未安装（权限请求被拒绝）。"
+  LangString FRVcPermissionPrompt 1033 "FR ComfyUI Control Center needs the Microsoft Visual C++ Redistributable. Installing it requires Windows permission, and that prompt was declined.$\n$\nRetry - show the permission prompt again (recommended)$\nIgnore - install ComfyUI anyway (it may not start until the Redistributable is installed)$\nAbort - stop and exit Setup"
+  LangString FRVcPermissionPrompt 2052 "FR ComfyUI Control Center 需要 Microsoft Visual C++ 运行库。安装它需要 Windows 权限，但刚才的权限请求被拒绝。$\n$\n重试 - 再次显示权限请求（推荐）$\n忽略 - 继续安装 ComfyUI（安装运行库前可能无法启动）$\n中止 - 停止并退出安装程序"
+  LangString FRVcInstalled 1033 "  Microsoft Visual C++ Redistributable installed."
+  LangString FRVcInstalled 2052 "  Microsoft Visual C++ 运行库安装完成。"
+  LangString FRVcIgnored 1033 "  Continuing without the Microsoft Visual C++ Redistributable - ComfyUI may not start until it is installed."
+  LangString FRVcIgnored 2052 "  未安装 Microsoft Visual C++ 运行库，继续安装；在补装运行库前，ComfyUI 可能无法启动。"
+  LangString FRVcCurrent 1033 "  Already up to date - skipping install."
+  LangString FRVcCurrent 2052 "  已是所需版本，跳过安装。"
+  LangString FRAppStep 1033 "Step 2 of 3: FR ComfyUI Control Center application files"
+  LangString FRAppStep 2052 "第 2 步（共 3 步）：FR ComfyUI Control Center 程序文件"
+  LangString FRExtracting 1033 "  Extracting to $INSTDIR (this may take a minute)..."
+  LangString FRExtracting 2052 "  正在解压到 $INSTDIR（可能需要一分钟）……"
+  LangString FRAttributionStored 1033 "  Website attribution identity stored."
+  LangString FRAttributionStored 2052 "  已保存网站来源标识。"
+  LangString FRAttributionFailed 1033 "  Website attribution identity could not be stored."
+  LangString FRAttributionFailed 2052 "  无法保存网站来源标识。"
+  LangString FRFilesInstalled 1033 "  Application files installed to: $INSTDIR"
+  LangString FRFilesInstalled 2052 "  程序文件已安装到：$INSTDIR"
+  LangString FRRegistered 1033 "  Registered with Add or Remove Programs"
+  LangString FRRegistered 2052 "  已注册到 Windows“应用和功能”"
+  LangString FRStartMenu 1033 "  Start Menu shortcut created"
+  LangString FRStartMenu 2052 "  已创建开始菜单快捷方式"
+  LangString FRUninstaller 1033 "  Uninstaller written: ${UNINSTALL_FILENAME}"
+  LangString FRUninstaller 2052 "  已写入卸载程序：${UNINSTALL_FILENAME}"
+  LangString FRFinishStep 1033 "Step 3 of 3: Finishing up"
+  LangString FRFinishStep 2052 "第 3 步（共 3 步）：完成安装"
+  LangString FRCleaning 1033 "  Cleaning up temporary files..."
+  LangString FRCleaning 2052 "  正在清理临时文件……"
+  LangString FRReady 1033 "  FR ComfyUI Control Center is ready to launch."
+  LangString FRReady 2052 "  FR ComfyUI Control Center 已可启动。"
+  LangString FRDesktopShortcut 1033 "Add a desktop shortcut"
+  LangString FRDesktopShortcut 2052 "添加桌面快捷方式"
 
   ; Reveal the install-details list view during install. electron-builder's
   ; common.nsh (included at installer.nsi line 8) defaults to
@@ -184,12 +234,12 @@
   # uninstaller write) also appear in the log instead of looking blank.
   SetDetailsPrint both
 
-  DetailPrint "Step 1 of 3: Microsoft Visual C++ Redistributable"
-  DetailPrint "  Detected installed version: $1"
-  DetailPrint "  Bundled version: ${VC_REDIST_VERSION}"
+  DetailPrint "$(FRVcStep)"
+  DetailPrint "$(FRDetectedVersion)"
+  DetailPrint "$(FRBundledVersion)"
 
   ${If} $2 == 2
-    DetailPrint "  Installing Microsoft Visual C++ Redistributable (this may take several minutes)..."
+    DetailPrint "$(FRInstallingVc)"
 
     File /oname=$PLUGINSDIR\vc_redist.x64.exe "${BUILD_RESOURCES_DIR}\vc_redist.x64.exe"
     # Launch the redist elevated via ShellExecuteEx's "runas" verb (NOT
@@ -212,30 +262,30 @@
     BringToFront
 
     ${If} $R8 == "ERR"
-      DetailPrint "Microsoft Visual C++ Redistributable was not installed (permission prompt declined)."
+      DetailPrint "$(FRVcDeclined)"
       BringToFront
       # Abort / Retry / Ignore is the only built-in MessageBox set with an
       # "Abort" button (Windows has no 2-button Retry|Abort).
       #   Retry  -> loop back to vcRedistAttempt (re-show the UAC prompt)
       #   Ignore -> jump past, install without the redist
       #   Abort  -> fall through to Quit (also the silent-install default)
-      MessageBox MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION "FR ComfyUI Control Center needs the Microsoft Visual C++ Redistributable. Installing it requires Windows permission, and that prompt was declined.$\n$\nRetry — show the permission prompt again (recommended)$\nIgnore — install ComfyUI anyway (it may not start until the Redistributable is installed)$\nAbort — stop and exit Setup" /SD IDABORT IDRETRY vcRedistAttempt IDIGNORE vcRedistIgnore
+      MessageBox MB_ABORTRETRYIGNORE|MB_ICONEXCLAMATION "$(FRVcPermissionPrompt)" /SD IDABORT IDRETRY vcRedistAttempt IDIGNORE vcRedistIgnore
       SetErrorLevel 2
       Quit
     ${EndIf}
 
-    DetailPrint "  Microsoft Visual C++ Redistributable installed."
+    DetailPrint "$(FRVcInstalled)"
     Goto vcRedistDone
     vcRedistIgnore:
-    DetailPrint "  Continuing without the Microsoft Visual C++ Redistributable — ComfyUI may not start until it is installed."
+    DetailPrint "$(FRVcIgnored)"
     vcRedistDone:
   ${Else}
-    DetailPrint "  Already up to date — skipping install."
+    DetailPrint "$(FRVcCurrent)"
   ${EndIf}
 
   DetailPrint ""
-  DetailPrint "Step 2 of 3: FR ComfyUI Control Center application files"
-  DetailPrint "  Extracting to $INSTDIR (this may take a minute)..."
+  DetailPrint "$(FRAppStep)"
+  DetailPrint "$(FRExtracting)"
 
   Pop $R8
   Pop $2
@@ -285,9 +335,9 @@
     ${IfNot} ${Errors}
       FileWrite $R3 "$R4$\r$\n"
       FileClose $R3
-      DetailPrint "  Website attribution identity stored."
+      DetailPrint "$(FRAttributionStored)"
     ${Else}
-      DetailPrint "  Website attribution identity could not be stored."
+      DetailPrint "$(FRAttributionFailed)"
     ${EndIf}
   ${EndIf}
   ${EndIf}
@@ -316,14 +366,14 @@
   ; straight to the Finish page.
   SetDetailsPrint both
   !insertmacro persistWebsiteAnonymousIdFromInstallerName
-  DetailPrint "  Application files installed to: $INSTDIR"
-  DetailPrint "  Registered with Add or Remove Programs"
-  DetailPrint "  Start Menu shortcut created"
-  DetailPrint "  Uninstaller written: ${UNINSTALL_FILENAME}"
+  DetailPrint "$(FRFilesInstalled)"
+  DetailPrint "$(FRRegistered)"
+  DetailPrint "$(FRStartMenu)"
+  DetailPrint "$(FRUninstaller)"
   DetailPrint ""
-  DetailPrint "Step 3 of 3: Finishing up"
-  DetailPrint "  Cleaning up temporary files..."
-  DetailPrint "  FR ComfyUI Control Center is ready to launch."
+  DetailPrint "$(FRFinishStep)"
+  DetailPrint "$(FRCleaning)"
+  DetailPrint "$(FRReady)"
 !macroend
 
 # Custom finish page: launch the app as the current user (not elevated)
@@ -380,7 +430,7 @@
   Var ComfyDesktopShortcutState
 
   Function FinishPageShowDesktopShortcutCheckbox
-    ${NSD_CreateCheckbox} 120u 110u 195u 10u "Add a desktop shortcut"
+    ${NSD_CreateCheckbox} 120u 110u 195u 10u "$(FRDesktopShortcut)"
     Pop $ComfyDesktopShortcutCheckbox
     ${NSD_SetState} $ComfyDesktopShortcutCheckbox ${BST_CHECKED}
   FunctionEnd

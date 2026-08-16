@@ -31,6 +31,7 @@
     "typecheck": "pnpm run typecheck:node && pnpm run typecheck:web && pnpm run typecheck:e2e && pnpm run typecheck:integration",
     "build:unpack": "pnpm run build && electron-builder --dir",
     "build:win": "pnpm run build && electron-builder --win",
+    "build:win:signed": "node scripts/fr-require-windows-signing.mjs && pnpm run build && electron-builder --win --config.forceCodeSigning=true && powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fr-verify-windows-signatures.ps1",
     "build:mac": "pnpm run build && electron-builder --mac",
     "build:linux": "pnpm run build && electron-builder --linux",
     "bootstrap": "node scripts/build-bootstrap-python.mjs",

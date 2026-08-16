@@ -21,6 +21,7 @@
     "src/main/**/*",
     "src/preload/**/*",
     "src/types/**/*",
-    "src/shared/**/*"
+    "src/shared/**/*",
+    "scripts/**/*.d.mts"
   ]
 }

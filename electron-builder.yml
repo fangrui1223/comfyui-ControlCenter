@@ -40,6 +40,14 @@ nsis:
   oneClick: false
   perMachine: false
   allowToChangeInstallationDirectory: true
+  # Ship one Unicode installer with English and Simplified Chinese resources.
+  # NSIS follows the Windows UI language automatically; users can still switch
+  # the application language at any time from Settings.
+  installerLanguages:
+    - en_US
+    - zh_CN
+  multiLanguageInstaller: true
+  displayLanguageSelector: false
   # Disable the built-in unconditional desktop-shortcut creation. The
   # installer surfaces an "Add a desktop shortcut" checkbox on the
   # Finish page (default checked) instead — same default outcome, but

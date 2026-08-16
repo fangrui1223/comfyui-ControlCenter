@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "milestone": "M9",
+  "evaluatedAt": "2026-08-16T16:37:15+08:00",
+  "status": "internal-unsigned-bilingual-candidate",
+  "version": "1.0.39",
+  "localization": {
+    "applicationLanguages": ["en", "zh-CN"],
+    "liveLanguageSwitch": true,
+    "installerLanguages": ["en_US", "zh_CN"],
+    "installerLanguageSelection": "windows-display-language",
+    "frOwnedInstallerStringsLocalized": true
+  },
+  "signing": {
+    "signToolPresent": true,
+    "windowsKit": "10.0.26100.0",
+    "usableCodeSigningCertificates": 0,
+    "signedBuildPreflight": "blocked-as-designed-no-identity",
+    "forceCodeSigning": true,
+    "postBuildAuthenticodeGate": "rejected-not-signed-as-designed",
+    "selfSignedRootInstalled": false
+  },
+  "tests": {
+    "typecheck": "pass",
+    "lint": "pass",
+    "formatCheck": "pass",
+    "unit": {
+      "status": "pass",
+      "files": 266,
+      "tests": 4398,
+      "retries": 0
+    },
+    "integration": {
+      "status": "pass",
+      "files": 7,
+      "tests": 46,
+      "retries": 0
+    },
+    "windowsE2e": {
+      "status": "not-rerun",
+      "reason": "M9 changes release packaging, documentation, and signing gates only; M8 Windows E2E remains the latest runtime-flow evidence."
+    },
+    "productionBuild": "pass",
+    "bilingualNsisBuild": "pass"
+  },
+  "artifact": {
+    "path": "dist/FR-ComfyUI-ControlCenter-1.0.39-win-x64.exe",
+    "bytes": 181822730,
+    "sha256": "89D75D0030B6096738DE48AE66F461B26EA5EB19CBB29D5209628BAA8E83158E",
+    "authenticode": "NotSigned",
+    "releaseClass": "internal-test-candidate"
+  },
+  "packagedApplication": {
+    "path": "dist/win-unpacked/FR ComfyUI Control Center.exe",
+    "bytes": 213615616,
+    "sha256": "70FE771B90AEDA84154DE2B287616641D7540D04A8D5F1501D4D3B8E40648681",
+    "authenticode": "NotSigned"
+  },
+  "userGuide": {
+    "path": "dist/docs/FR-ComfyUI-ControlCenter-User-Guide.zh-CN.en.docx",
+    "pages": 16,
+    "bytes": 55946,
+    "sha256": "910C9D9F7037E0A0D01D6FCC4B4904E57529C3B7B291751D63D89F24863EDB12",
+    "renderedVisualQa": "pass"
+  },
+  "safety": {
+    "stableInstallationMutated": false,
+    "sharedModelLibraryMutated": false,
+    "windowsTrustStoreMutated": false,
+    "temporaryDocumentQaFilesRemoved": true
+  },
+  "publicBlockers": [
+    "source-license-and-brand-review",
+    "trusted-windows-code-signing-identity",
+    "fr-update-provider",
+    "user-owned-origin",
+    "signed-package-smoke-and-installer-uninstaller-test"
+  ]
+}
