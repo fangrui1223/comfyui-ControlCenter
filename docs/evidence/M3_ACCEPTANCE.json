@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "acceptedAt": "2026-08-16T06:02:35Z",
+  "target": "C:\\FR_comfyui_next",
+  "profileId": "win-nvidia-py313-torch2121-cu130",
+  "bundle": {
+    "tag": "v0.29.0-env1",
+    "bytes": 2307213244,
+    "sha256": "AE06C6AD06F0A3288AF68259C32D6E41E2363E195F4A7F1BCBD1E729E724B96F"
+  },
+  "runtime": {
+    "python": "3.13.12",
+    "torch": "2.12.1+cu130",
+    "torchvision": "0.27.1+cu130",
+    "torchaudio": "2.11.0+cu130",
+    "transformers": "5.15.0",
+    "tritonWindows": "3.7.1.post27",
+    "xformers": null,
+    "diffusers": null,
+    "accelerate": null,
+    "sageattention": null,
+    "tensorrt": null
+  },
+  "comfyui": {
+    "version": "v0.33.1",
+    "commit": "72865f4f27eaf5396f8f36370e0a2be3a9a090ee",
+    "frontend": "1.48.7",
+    "manager": "4.2.2"
+  },
+  "hardware": {
+    "gpu": "NVIDIA GeForce RTX 5090",
+    "computeCapability": "12.0",
+    "vramMiB": 32607,
+    "driver": "610.47",
+    "torchArchListContainsSm120": true
+  },
+  "gates": {
+    "fp16Matmul": "pass",
+    "bf16Matmul": "pass",
+    "fp16Sdpa": "pass",
+    "bf16Sdpa": "pass",
+    "fp8E4m3fnConversion": "pass",
+    "tritonTorchCompile": "pass",
+    "coreQuickTest": "pass",
+    "dynamicVram": "pass",
+    "finalPathRelocation": "pass"
+  },
+  "rejectedCandidates": [
+    {
+      "package": "xformers==0.0.35",
+      "wheel": "cu130 official PyTorch index",
+      "reason": "Imports successfully, but FA3, FA2 and CUTLASS fMHA dispatch reject SM120; cutlassF-blackwell is unavailable.",
+      "action": "uninstalled from next; catalog disposition blocked-on-target"
+    }
+  ],
+  "transaction": {
+    "id": "runtime-20260816140123-84236df2",
+    "status": "committed",
+    "recovery": "C:\\FR_comfyui_cache\\.fr-control-center\\transactions\\runtime\\runtime-20260816140123-84236df2\\previous-layout"
+  }
+}
