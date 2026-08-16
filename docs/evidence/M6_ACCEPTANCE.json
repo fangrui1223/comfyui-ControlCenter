@@ -1,0 +1,44 @@
+{
+  "milestone": "M6",
+  "status": "accepted",
+  "acceptedAt": "2026-08-16T06:28:10.3383956Z",
+  "policyVersion": 1,
+  "componentIsolation": [
+    "core",
+    "frontend",
+    "manager",
+    "runtime",
+    "plugin",
+    "model-mapping"
+  ],
+  "channels": {
+    "stable": "observe-only",
+    "next": ["stable"],
+    "lab": ["stable", "preview", "experimental"]
+  },
+  "baselineRestorePoint": {
+    "id": "baseline-20260816062810-1105ffb4",
+    "core": {
+      "version": "v0.33.1",
+      "commit": "72865f4f27eaf5396f8f36370e0a2be3a9a090ee",
+      "workingTreeClean": true,
+      "offlineBundleBytes": 13001528,
+      "offlineBundleVerified": true,
+      "completeHistory": true
+    },
+    "captured": [
+      "python-package-lock",
+      "runtime-manifest",
+      "runtime-lock",
+      "manager-config",
+      "model-mapping-config",
+      "model-mapping-manifest",
+      "ownership-marker"
+    ],
+    "customNodesRecorded": 2,
+    "thirdPartyCustomNodesInNext": 0,
+    "modelFilesCaptured": false,
+    "modelLibraryModified": false,
+    "dryRunRestorePlanPassed": true
+  }
+}
