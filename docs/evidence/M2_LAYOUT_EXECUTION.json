@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "transactionId": "20260816133950-e6a80d70",
+  "createdAt": "2026-08-16T05:39:50.5150788Z",
+  "mode": "execute",
+  "stableRoot": "C:\\FR_comfyui",
+  "sharedModelsRoot": "C:\\FR_comfyui\\models",
+  "sharedModelsPolicy": "read-only-no-scan-no-write",
+  "freeBytes": 1597445701632,
+  "targets": [
+    {
+      "Kind": "next",
+      "Path": "C:\\FR_comfyui_next",
+      "State": "missing",
+      "OwnerRole": null
+    },
+    {
+      "Kind": "lab",
+      "Path": "C:\\FR_comfyui_lab",
+      "State": "missing",
+      "OwnerRole": null
+    },
+    {
+      "Kind": "cache",
+      "Path": "C:\\FR_comfyui_cache",
+      "State": "missing",
+      "OwnerRole": null
+    }
+  ],
+  "blocked": false
+}
