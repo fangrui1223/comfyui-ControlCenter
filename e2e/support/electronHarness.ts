@@ -109,6 +109,9 @@ function buildIsolatedEnv(
   const effectiveSeed: Record<string, unknown> = {
     firstUseCompleted: false,
     telemetryEnabled: false,
+    // Keep text selectors and assertions deterministic across host OS locales.
+    // Individual tests can still override this through `settingsSeed`.
+    language: 'en',
     ...(settingsSeed ?? {})
   }
   env['E2E_SETTINGS_SEED'] = JSON.stringify(effectiveSeed)

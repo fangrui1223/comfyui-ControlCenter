@@ -2,10 +2,22 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { BRIDGE_PORT, startBridgeServer } from './server'
 
-// oauth.ts goes through Chromium's net.fetch; delegate to the global fetch so
-// the raw-OAuth initiator arm keeps its pre-existing live-call behavior here.
+const { oauthFetch } = vi.hoisted(() => ({
+  oauthFetch: vi.fn(
+    async () =>
+      new Response(
+        JSON.stringify({
+          authUri: 'https://accounts.google.com/o/oauth2/v2/auth?client_id=test-client',
+          sessionId: 'test-session',
+          providerId: 'google.com'
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+  )
+}))
+
 vi.mock('electron', () => ({
-  net: { fetch: (...args: Parameters<typeof fetch>) => globalThis.fetch(...args) }
+  net: { fetch: oauthFetch }
 }))
 
 describe('startBridgeServer', () => {
@@ -81,6 +93,10 @@ describe('startBridgeServer', () => {
       const location = res.headers.get('location') || ''
       expect(location).toContain('accounts.google.com')
       expect(location).toContain('client_id=')
+      expect(oauthFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/accounts:createAuthUri?key='),
+        expect.objectContaining({ method: 'POST' })
+      )
     } finally {
       handle.close()
     }
