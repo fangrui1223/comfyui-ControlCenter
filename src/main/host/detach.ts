@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { dialog, ipcMain } from 'electron'
 import type { BrowserWindow, WebContentsView } from 'electron'
 import * as ipc from '../lib/ipc'
 import { _runningSessions } from '../lib/ipc/shared'
@@ -8,6 +8,7 @@ import { openSystemModalAsync } from '../popups/systemModal'
 import type { SystemModalDetailGroup } from '../popups/systemModal'
 import { recordDashboardSurface } from '../lib/lastSession'
 import * as settings from '../settings'
+import * as i18n from '../lib/i18n'
 import { comfyWindows, isChooserHost, isInstallHost, shouldConfirmKillForEntry } from './registry'
 import type { ComfyWindowEntry } from './registry'
 import {
@@ -149,6 +150,15 @@ export function closeAllHostWindows(): void {
   }
 }
 
+/** A managed app exit is destructive whenever it would stop either an open
+ * local instance or background work such as a model transfer. */
+export function shouldConfirmManagedQuit(
+  localInstanceWindowCount: number,
+  hasActiveWork: boolean
+): boolean {
+  return localInstanceWindowCount > 0 || hasActiveWork
+}
+
 /**
  * File menu's "Return to Dashboard" entry. Flips the install-backed host window in place to
  * chooser mode via `entry.detachInstall()`. Confirm surface depends on panelView state:
@@ -197,31 +207,40 @@ async function confirmReturnToDashboardViaSystemModal(entry: ComfyWindowEntry): 
  */
 export async function confirmAndCloseAllHostWindows(
   parentWindow: BrowserWindow | null,
-  performQuit: () => void
+  performQuit: () => void | Promise<void>
 ): Promise<void> {
   const entries = Array.from(comfyWindows.values()).filter((e) => !e.window.isDestroyed())
   // "Instances" = windows that would lose a local ComfyUI process on quit. Chooser hosts
   // and cloud/remote windows close silently (no local work at risk).
   const instanceWindows = entries.filter((e) => shouldConfirmKillForEntry(e))
-  if (instanceWindows.length === 0) {
-    performQuit()
+  const hasActiveWork = ipc.hasActiveOperations()
+  if (!shouldConfirmManagedQuit(instanceWindows.length, hasActiveWork)) {
+    await performQuit()
     return
   }
+  const details: SystemModalDetailGroup[] = []
   // Use the title-bar pill name, not the verbose OS window title.
   const titles = instanceWindows.map((e) => e.titleBarText || 'Untitled instance')
-  const details: SystemModalDetailGroup[] = [{ label: 'Open instances', items: titles }]
+  if (titles.length > 0) {
+    details.push({ label: i18n.t('settings.closeQuitSessions'), items: titles })
+  }
   // Surface the EXTRA things a quit tears down. Running sessions are deliberately NOT
-  // re-listed: they already appear under "Open instances".
-  if (ipc.hasActiveOperations()) {
+  // re-listed unless they do not have an open local instance window.
+  if (hasActiveWork) {
     try {
       const items = await ipc.getActiveDetails()
+      const sessions = items.filter((i) => i.type === 'session').map((i) => i.name)
       const operations = items.filter((i) => i.type === 'operation').map((i) => i.name)
       const downloads = items.filter((i) => i.type === 'download').map((i) => i.name)
+      if (titles.length === 0 && sessions.length > 0) {
+        details.push({ label: i18n.t('settings.closeQuitSessions'), items: sessions })
+      }
       if (operations.length > 0)
-        details.push({ label: 'In-progress operations', items: operations })
-      if (downloads.length > 0) details.push({ label: 'Active downloads', items: downloads })
+        details.push({ label: i18n.t('settings.closeQuitOperations'), items: operations })
+      if (downloads.length > 0)
+        details.push({ label: i18n.t('settings.closeQuitDownloads'), items: downloads })
     } catch {
-      // Fall back to just the instance list if active-detail collection throws.
+      // The generic warning remains actionable if detail collection fails.
     }
   }
   // Prefer the caller's hint, falling back to any live host so the confirm isn't dropped
@@ -231,26 +250,38 @@ export async function confirmAndCloseAllHostWindows(
       ? entries.find((e) => e.window === parentWindow)
       : entries[0]
   if (!overlayParentEntry) {
-    performQuit()
+    const { response } = await dialog.showMessageBox({
+      type: 'warning',
+      buttons: [i18n.t('settings.closeQuitConfirm'), i18n.t('actions.cancel')],
+      defaultId: 1,
+      cancelId: 1,
+      title: i18n.t('settings.closeQuitTitle'),
+      message: i18n.t('settings.closeQuitMessage'),
+      detail: details.flatMap((group) => group.items).join('\n')
+    })
+    if (response === 0) await performQuit()
     return
   }
-  const count = instanceWindows.length
+  // Tray Exit can be requested while every host is hidden. Reveal the modal's
+  // parent first; otherwise Windows may attach the confirmation to an
+  // invisible owner and make the destructive choice unreachable.
+  if (!overlayParentEntry.window.isVisible()) {
+    overlayParentEntry.window.show()
+    overlayParentEntry.window.focus()
+  }
   const confirmed = await openSystemModalAsync({
     parent: overlayParentEntry.window,
     spec: {
-      title: 'Quit Desktop',
-      message:
-        count === 1
-          ? 'Quit Desktop? This will close the running ComfyUI instance.'
-          : `Quit Desktop? This will close ${count} running ComfyUI instances.`,
+      title: i18n.t('settings.closeQuitTitle'),
+      message: i18n.t('settings.closeQuitMessage'),
       details,
-      confirmLabel: 'Quit',
-      cancelLabel: 'Cancel',
+      confirmLabel: i18n.t('settings.closeQuitConfirm'),
+      cancelLabel: i18n.t('actions.cancel'),
       confirmStyle: 'danger',
       theme: overlayParentEntry.lastTheme
     }
   })
-  if (confirmed) performQuit()
+  if (confirmed) await performQuit()
 }
 
 /**

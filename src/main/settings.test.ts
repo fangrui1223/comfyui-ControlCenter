@@ -83,6 +83,19 @@ afterAll(() => {
 })
 
 describe('settings unset/default semantics', () => {
+  it('defaults closing the app to the system tray', () => {
+    expect(settings.defaults.onAppClose).toBe('tray')
+    expect(settings.get('onAppClose')).toBe('tray')
+  })
+
+  it('preserves an existing tray close preference', () => {
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true })
+    fs.writeFileSync(settingsPath, JSON.stringify({ onAppClose: 'tray' }), 'utf-8')
+
+    expect(settings.get('onAppClose')).toBe('tray')
+    expect(readPersistedSettings()['onAppClose']).toBe('tray')
+  })
+
   it('treats undefined as unset and falls back to default', () => {
     settings.set('onAppClose', 'quit')
     expect(settings.get('onAppClose')).toBe('quit')
@@ -546,13 +559,12 @@ describe('getTrackedSettingsTelemetryProperties (telemetry policy)', () => {
   })
 
   it('scalar value settings emit their typed value, never a hand-edited string', () => {
-    // onAppClose enum + maxCachedDownloads number pass through when valid
-    // (onAppClose resolves to its 'quit' default while tray docking is disabled).
+    // onAppClose enum + maxCachedDownloads number pass through when valid.
     settings.set('maxCachedDownloads', 5)
     expect(
       settings.getTrackedSettingsTelemetryProperties(['onAppClose', 'maxCachedDownloads'])
     ).toEqual({
-      setting_on_app_close: 'quit',
+      setting_on_app_close: 'tray',
       setting_max_cached_downloads: 5
     })
     // A corrupt/hand-edited settings.json can't leak a free-form string.

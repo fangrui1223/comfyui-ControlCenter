@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { getWindowsSigningProvider } from '../../../scripts/fr-require-windows-signing.mjs'
+import {
+  getWindowsSigningBuilderArgs,
+  getWindowsSigningProvider
+} from '../../../scripts/fr-require-windows-signing.mjs'
 
 describe('Windows signed-release preflight', () => {
   it('rejects an empty signing configuration', () => {
@@ -28,5 +31,22 @@ describe('Windows signed-release preflight', () => {
     expect(getWindowsSigningProvider({ CSC_NAME: 'FR AI' })).toBe(
       'Windows certificate store (CSC_NAME)'
     )
+  })
+
+  it('passes a Windows store subject explicitly to electron-builder', () => {
+    expect(getWindowsSigningBuilderArgs({ CSC_NAME: '  FR AI  ' })).toEqual([
+      '--win',
+      '--config.forceCodeSigning=true',
+      '--config.win.signtoolOptions.certificateSubjectName=FR AI'
+    ])
+  })
+
+  it('leaves PFX selection to WIN_CSC_LINK', () => {
+    expect(
+      getWindowsSigningBuilderArgs({
+        WIN_CSC_LINK: 'publisher.pfx',
+        WIN_CSC_KEY_PASSWORD: 'secret'
+      })
+    ).toEqual(['--win', '--config.forceCodeSigning=true'])
   })
 })

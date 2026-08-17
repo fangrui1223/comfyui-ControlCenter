@@ -1,13 +1,13 @@
 # FR ComfyUI Control Center 用户操作手册 / User Guide
 
-**版本 / Version:** 1.0.39 · M9 bilingual release candidate
+**版本 / Version:** 1.0.41 · locally signed bilingual daily build
 **日期 / Date:** 2026-08-16
 **适用平台 / Platform:** Windows 11 x64 · NVIDIA RTX 5090 / Blackwell
 **文档定位 / Purpose:** 日常操作、环境隔离、模型共享、插件维护、性能选择、更新与恢复。
 
 > **发布状态 / Release status**
-> 当前开发机没有 FR 发布者代码签名证书。现有安装包只能作为“内部未签名候选”测试，不能称为可信公开版。正式签名命令已经采用缺证书即失败的门禁；取得 CA 证书或合格的云签名身份后，必须重新构建并验证 Authenticode。
-> The current development machine has no FR publisher code-signing certificate. Existing installers are internal unsigned candidates, not trusted public releases. The formal release command now fails closed until a valid signing identity is configured, then verifies Authenticode after packaging.
+> 当前开发机已配置仅供本机当前 Windows 用户使用的 FR 自签名证书。`1.0.41` 本机安装包已通过 Authenticode 验证、运行时依赖闭包检查和隔离启动测试，可作为这台电脑的长期日用版本。`1.0.39` 存在已修复的打包依赖缺失问题，不应继续使用；本机签名证书不是公开发行证书，不能转发到其他电脑并声称为可信公开版。
+> This development machine has an FR self-signed certificate trusted only for the current Windows user. The local `1.0.41` installer passes Authenticode verification, packaged-runtime closure validation, and isolated startup smoke testing, so it can be used continuously on this PC. Do not use `1.0.39`: its packaged dependency defect is fixed. This is not a public-release identity and must not be redistributed as a publicly trusted build.
 
 ## 1. 先看结论 / Read this first
 
@@ -27,27 +27,42 @@ FR ComfyUI Control Center does not combine every ComfyUI workload into one Pytho
 
 ## 2. 安装与首次启动 / Install and first launch
 
-### 2.1 可信签名版 / Trusted signed build
+### 2.1 当前本机签名版 / Current locally signed build
 
-1. 只从 FR 官方发布位置下载安装包。
-2. 右键安装包 → **属性** → **数字签名**，确认签名状态有效、发布者与 FR 的正式发布身份一致。
-3. 运行安装包。安装器自动跟随 Windows 显示语言：简体中文系统显示中文，其他系统使用英文。
-4. 按需要选择当前用户或所有用户安装，确认目录，等待三个步骤完成：VC++ 运行库、程序文件、清理收尾。
-5. 完成页可取消“添加桌面快捷方式”；点击完成后启动控制中心。
+1. 先关闭旧版控制中心；使用本仓库 `dist\FR-ComfyUI-ControlCenter-1.0.41-win-x64.exe` 覆盖安装。它只替换控制中心自身，不会迁移、更新或修改 stable、next、lab 或共享模型库。
+2. 右键安装包 → **属性** → **数字签名**，确认状态有效，签名者为 `FR ComfyUI Control Center Local Signing`。
+3. 如需复核文件，安装包 SHA-256 应为 `2213F79517E69EC15B002275ECE978D6806874492B18B6997FA0816151CC5502`。
+4. 运行安装包。安装器自动跟随 Windows 显示语言：简体中文系统显示中文，其他系统使用英文。
+5. 选择“仅为当前用户安装”（本机证书只在当前用户范围受信任），确认目录，等待三个步骤完成：VC++ 运行库、程序文件、清理收尾。
+6. 完成页可取消“添加桌面快捷方式”；点击完成后启动控制中心。
 
-Download only from the official FR distribution point. Check **Properties → Digital Signatures** before running. The installer follows the Windows UI language automatically, installs the VC++ runtime when required, writes application files, and optionally creates a desktop shortcut.
+Use the installer from this repository and check **Properties → Digital Signatures** before running. This identity is trusted only for the current Windows user on this PC, so choose the current-user installation scope. The installer follows the Windows UI language automatically, installs the VC++ runtime when required, writes application files, and optionally creates a desktop shortcut.
 
-### 2.2 当前内部未签名候选 / Current unsigned internal candidate
+### 2.2 未来公开签名版 / Future public signed build
 
-仅用于本机开发验收。先核对发布记录中的文件名、大小和 SHA-256；不要关闭 SmartScreen、不要把未知证书装入受信任根目录、不要把未签名包转发给其他用户。Windows 阻止运行时，应停止并改用源码态测试或等待正式签名包。
+如果未来需要给其他电脑或其他用户公开分发，必须改用 CA 颁发或合格托管服务提供的正式发布者身份并重新构建。本机自签名证书不提供跨设备信任，也不建立公开 SmartScreen 信誉。
 
-Use only for controlled local development. Verify the recorded filename, size, and SHA-256. Do not disable SmartScreen, install an unknown root certificate, or redistribute the unsigned build. If Windows blocks it, use source-mode testing or wait for a trusted build.
+Public distribution to other PCs or users requires a CA-issued or qualified managed publisher identity and a fresh build. The local self-signed identity provides neither cross-device trust nor public SmartScreen reputation.
 
 ### 2.3 选择语言 / Choose language
 
 应用首次启动采用 Windows 语言。之后打开 **启动器设置 / Launcher Settings → 常规 / General → 语言 / Language**，选择“简体中文”或“English”；界面即时切换，不需要重装。安装器语言和应用语言相互独立。
 
 The app initially follows Windows. Open **Launcher Settings → General → Language** to switch between Simplified Chinese and English live, without reinstalling. Installer language and application language are independent.
+
+### 2.4 关闭、最小化与托盘 / Close, minimize, and tray
+
+默认情况下，点击窗口右上角 **关闭 / X** 会隐藏控制中心到 Windows 系统托盘，已运行的 ComfyUI、下载和后台事务继续运行。点击最小化按钮仍只最小化到任务栏。单击托盘图标，或在托盘菜单选择“显示 FR ComfyUI Control Center”，会恢复已有窗口，不会重启实例或新建重复窗口。
+
+如果点击 X 后应用直接退出，先检查“关闭应用时”是否被设为“停止所有实例并退出”。这是一个明确的用户偏好，会覆盖默认的托盘隐藏行为，并不表示托盘功能失效。
+
+从 **启动器设置 / Launcher Settings → 常规 / General → 关闭应用时 / When app is closed** 可改为“停止所有实例并退出”。此模式下点击 X 会先列出运行中的实例、后台操作和下载，确认后才停止所有由控制中心管理的 ComfyUI 进程并退出。无论该设置为何，托盘菜单的“退出 / Quit”始终执行同一套受管退出：确认活动工作、等待进程树停止，并将可恢复模型下载安全暂停。
+
+By default, the window **Close / X** button hides the Control Center in the Windows system tray while managed ComfyUI instances, downloads, and background operations continue. The minimize button still minimizes only to the taskbar. Click the tray icon or choose “Show FR ComfyUI Control Center” to restore an existing window without restarting an instance or creating a duplicate.
+
+If X exits the application, first check whether **When app is closed** is set to **Stop all instances and quit**. That explicit preference overrides the default tray behavior; it does not mean the tray is unavailable.
+
+Open **Launcher Settings → General → When app is closed** to choose “Stop all instances and quit.” In this mode, X lists running instances, background operations, and downloads before anything stops. After confirmation, the Control Center stops every managed ComfyUI process and exits. Regardless of this preference, the tray menu’s “Quit” always uses this managed exit sequence: confirm active work, wait for process trees to stop, and safely park resumable model downloads.
 
 ## 3. 首页与实例 / Dashboard and instances
 
@@ -276,7 +291,7 @@ pnpm run build:win:signed
 ### 13.2 Windows 证书库 / Windows certificate store
 
 ```powershell
-$env:CSC_NAME = 'FR AI'
+$env:CSC_NAME = 'FR ComfyUI Control Center Local Signing'
 pnpm run build:win:signed
 ```
 

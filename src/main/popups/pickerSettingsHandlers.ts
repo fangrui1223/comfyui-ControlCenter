@@ -31,7 +31,7 @@ export interface PickerSettingsIpcOptions {
    *  would otherwise consult/prompt), NEVER `app.exit()`: exit() skips
    *  `will-quit`, where active managed model downloads park their staged
    *  bytes for resume, so it would strand in-flight transfers. */
-  quitForRelaunch: () => void
+  quitForRelaunch: () => void | Promise<void>
 }
 
 export function registerPickerSettingsIpc(options: PickerSettingsIpcOptions): void {
@@ -162,7 +162,7 @@ export function registerPickerSettingsIpc(options: PickerSettingsIpcOptions): vo
       console.error('Picker: relaunch failed', err)
       return
     }
-    options.quitForRelaunch()
+    void options.quitForRelaunch()
   })
 
   // Pull main's full i18n catalog so keys like `actions.restart` resolve inside the popup.

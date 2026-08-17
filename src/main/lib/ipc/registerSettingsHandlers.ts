@@ -118,7 +118,16 @@ export function buildSettingsSections(
           type: 'boolean',
           value: s.autoInstallUpdates !== false
         },
-        // onAppClose field hidden while docking-to-tray is disabled.
+        {
+          id: 'onAppClose',
+          label: i18n.t('settings.onAppClose'),
+          type: 'select',
+          value: s.onAppClose === 'quit' ? 'quit' : 'tray',
+          options: [
+            { value: 'tray', label: i18n.t('settings.closeTray') },
+            { value: 'quit', label: i18n.t('settings.closeQuit') }
+          ]
+        },
         ...(isChinese ? [chineseMirrorsField] : [])
       ]
     },

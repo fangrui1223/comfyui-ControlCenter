@@ -1,6 +1,15 @@
-import { app, Menu, ipcMain, net, dialog, crashReporter, nativeTheme, powerMonitor } from 'electron'
+import {
+  app,
+  Menu,
+  Tray,
+  ipcMain,
+  net,
+  dialog,
+  crashReporter,
+  nativeTheme,
+  powerMonitor
+} from 'electron'
 import type { BrowserWindow, WebContentsView } from 'electron'
-import type { Tray } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { normaliseFirstUseMode } from '../shared/firstUseMode'
@@ -186,6 +195,8 @@ const APP_VERSION = getAppVersion()
 // The chooser host window plus per-install ComfyUI windows are the
 // only top-level surfaces.
 let tray: Tray | null = null
+let managedQuitPromise: Promise<void> | null = null
+let managedQuitRequest: Promise<void> | null = null
 
 /** Stop handle for the periodic release-cache poll registered in
  *  `whenReady`. Cleared in `before-quit` so the interval doesn't
@@ -212,41 +223,86 @@ function focusExternalProcessWindow(pid: number): void {
     )
   }
 }
+function showControlCenter(): void {
+  openOrFocusAnyHostWindow()
+}
+
+function hideControlCenterToTray(): void {
+  for (const [, entry] of comfyWindows) {
+    if (!entry.window.isDestroyed()) entry.window.hide()
+  }
+}
+
+function destroyTray(): void {
+  if (!tray) return
+  tray.destroy()
+  tray = null
+}
+
 function updateTrayMenu(): void {
   if (!tray) return
-  // The install-less chooser host is the primary surface. "Show
-  // App" focuses the chooser host.
   const contextMenu = Menu.buildFromTemplate([
     {
       label: i18n.t('tray.showApp'),
-      click: () => {
-        openOrFocusChooserHostWindow()
-      }
+      click: showControlCenter
     },
     { type: 'separator' },
-    { label: i18n.t('tray.quit'), click: () => quitApp() }
+    { label: i18n.t('tray.quit'), click: () => void requestManagedQuit(null) }
   ])
   tray.setContextMenu(contextMenu)
 }
 
-// `createTray()` has been removed while docking-to-tray is disabled —
-// see whenReady()'s comment about restoring docking. The `tray` module
-// state and `updateTrayMenu()` (a no-op when tray is null) are kept so
-// that `onLocaleChanged: updateTrayMenu` and the `before-quit` cleanup
-// path stay valid without conditional churn for the eventual restore.
+function createTray(): void {
+  if (tray) return
+  tray = new Tray(path.join(__dirname, '..', '..', 'assets', 'FR_ControlCenter_x32.png'))
+  tray.setToolTip(FR_PRODUCT_NAME)
+  updateTrayMenu()
+  tray.on('click', showControlCenter)
+  tray.on('double-click', showControlCenter)
+}
 
-function quitApp(): void {
-  setQuitReason('user-quit')
-  ipc.cancelAll()
-  for (const [, entry] of comfyWindows) {
-    if (!entry.window.isDestroyed()) entry.window.destroy()
+async function quitApp(): Promise<void> {
+  if (managedQuitPromise) return managedQuitPromise
+  managedQuitPromise = (async () => {
+    setQuitReason('user-quit')
+    try {
+      await ipc.cancelAllAndWait()
+    } catch (err) {
+      // The process killer already attempts every session. Continue through
+      // Electron's normal shutdown so model-download parking still runs.
+      console.error('Managed ComfyUI shutdown did not fully drain:', err)
+    }
+    for (const [, entry] of comfyWindows) {
+      if (!entry.window.isDestroyed()) entry.window.destroy()
+    }
+    comfyWindows.clear()
+    closeAllPopouts()
+    disposeAllTerminals()
+    destroyTray()
+    app.quit()
+  })()
+  return managedQuitPromise
+}
+
+function requestManagedQuit(parentWindow: BrowserWindow | null): Promise<void> {
+  if (managedQuitRequest) return managedQuitRequest
+  const request = confirmAndCloseAllHostWindows(parentWindow, quitApp)
+  managedQuitRequest = request
+  void request.finally(() => {
+    if (managedQuitRequest === request && !managedQuitPromise) {
+      managedQuitRequest = null
+    }
+  })
+  return request
+}
+
+function handleUserCloseIntent(window: BrowserWindow): boolean {
+  if (settings.get('onAppClose') === 'quit') {
+    void requestManagedQuit(window)
+    return true
   }
-  comfyWindows.clear()
-  if (tray) {
-    tray.destroy()
-    tray = null
-  }
-  app.quit()
+  hideControlCenterToTray()
+  return true
 }
 
 /** Restore windows are opened hidden and revealed only once their launch
@@ -765,19 +821,18 @@ function scheduleTemplateTrayAutoOpen(installationId: string): void {
   }, TEMPLATE_TRAY_AUTO_OPEN_MS)
 }
 
-ipcMain.handle('quit-app', () => quitApp())
+ipcMain.handle('quit-app', () => requestManagedQuit(null))
 
-ipcMain.handle('app:relaunch', () => {
+ipcMain.handle('app:relaunch', async () => {
   setQuitReason('user-quit')
-  ipc.cancelAll()
+  await ipc.cancelAllAndWait()
   for (const [, entry] of comfyWindows) {
     if (!entry.window.isDestroyed()) entry.window.destroy()
   }
   comfyWindows.clear()
-  if (tray) {
-    tray.destroy()
-    tray = null
-  }
+  closeAllPopouts()
+  disposeAllTerminals()
+  destroyTray()
   app.relaunch()
   app.quit()
 })
@@ -1376,6 +1431,7 @@ if (app.isPackaged && !app.requestSingleInstanceLock()) {
       confirmCloseInstanceWindow,
       detachInstallImpl: _detachInstallImpl,
       preClearedClose,
+      handleUserCloseIntent,
       computeInstallUpdateAvailable
     })
     setAttachFactories({
@@ -1489,6 +1545,7 @@ if (app.isPackaged && !app.requestSingleInstanceLock()) {
 
     const locale = (settings.get('language') as string | undefined) || app.getLocale().split('-')[0]
     i18n.init(locale)
+    createTray()
 
     // Locale adoption + unsupported-locale demand. `effective_language` is read
     // after i18n.init so it's the locale the app actually renders (falls back to
@@ -1700,8 +1757,7 @@ if (app.isPackaged && !app.requestSingleInstanceLock()) {
     registerTitlePopupIpc({
       openChooserHostWindow,
       returnToDashboard,
-      confirmAndCloseAllHostWindows: (parentWindow) =>
-        confirmAndCloseAllHostWindows(parentWindow, quitApp),
+      confirmAndCloseAllHostWindows: (parentWindow) => requestManagedQuit(parentWindow),
       confirmAndCloseHostWindow,
       setActivePanel,
       triggerOpenFeedback,
@@ -2190,14 +2246,6 @@ if (app.isPackaged && !app.requestSingleInstanceLock()) {
     // title-bar. Drives the always-visible tray icon / badge; newly-
     // opened windows pick up live transitions automatically.
     downloadEvents.on('tray-state-changed', _broadcastDownloadsToTitleBars)
-    // Tray / docking is disabled while the unified-window flow is being
-    // rebuilt — closing the last window quits the app instead of
-    // collapsing it into a hidden background process. The `onAppClose`
-    // setting (settings.ts), the settings-UI field
-    // (registerSettingsHandlers.ts), the `createTray()` startup call,
-    // and the tray-aware `window-all-closed` gating will all come back
-    // when the docked-app flow is reinstated. Until then, see git
-    // history for the previous tray construction code.
     // Apply a previously-downloaded Desktop update at startup rather than on
     // quit (installing on quit is what a Windows shutdown interrupts and
     // corrupts). When an update is staged we show a brief "Updating…" splash
@@ -2337,20 +2385,12 @@ if (app.isPackaged && !app.requestSingleInstanceLock()) {
       }
     }
     if (!isQuitInProgress()) {
-      setQuitReason('user-quit')
-      ipc.cancelAll()
-      for (const [, entry] of comfyWindows) {
-        if (!entry.window.isDestroyed()) entry.window.destroy()
-      }
-      comfyWindows.clear()
-      // Pop-out terminal/logs windows live outside `comfyWindows`; close them
-      // here too and kill their shared shells so no window or PTY child lingers.
-      closeAllPopouts()
-      disposeAllTerminals()
-      if (tray) {
-        tray.destroy()
-        tray = null
-      }
+      // Native app-menu / keyboard quit paths bypass a host window's close
+      // event. Route them through the same confirmation and stop-all sequence
+      // as the tray menu instead of allowing Electron to tear down first.
+      event.preventDefault()
+      void requestManagedQuit(null)
+      return
     }
     if (_stopPeriodicReleaseChecks) {
       _stopPeriodicReleaseChecks()
@@ -2392,15 +2432,9 @@ if (app.isPackaged && !app.requestSingleInstanceLock()) {
   })
 
   app.on('window-all-closed', () => {
-    // With docking disabled (tray creation is currently a no-op), the
-    // app should quit when the last window closes. The
-    // `hasRunningSessions()` guard remains so an in-flight install /
-    // running ComfyUI session keeps the process alive even if every
-    // visible window happens to be closed momentarily — but in practice
-    // closing a comfy window also stops its session, so this is mostly
-    // a safety net. When docking comes back, restore the original
-    // `if (!tray && !ipc.hasRunningSessions())` gating.
-    if (!ipc.hasRunningSessions()) {
+    // A live tray owns the background lifecycle. Without one (for example an
+    // unsupported desktop shell), retain the normal last-window quit fallback.
+    if (!tray && !ipc.hasRunningSessions()) {
       app.quit()
     }
   })

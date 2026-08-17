@@ -22,6 +22,21 @@ export function getWindowsSigningProvider(env = process.env) {
   )
 }
 
+/**
+ * electron-builder does not read CSC_NAME for Windows store certificates by
+ * itself. Convert the public release-shell variable into the explicit Windows
+ * signtool option while leaving PFX selection to WIN_CSC_LINK.
+ */
+export function getWindowsSigningBuilderArgs(env = process.env) {
+  getWindowsSigningProvider(env)
+  const args = ['--win', '--config.forceCodeSigning=true']
+  const subjectName = env.CSC_NAME?.trim()
+  if (subjectName) {
+    args.push(`--config.win.signtoolOptions.certificateSubjectName=${subjectName}`)
+  }
+  return args
+}
+
 function main() {
   try {
     const provider = getWindowsSigningProvider()

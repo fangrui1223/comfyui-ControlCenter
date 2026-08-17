@@ -1663,7 +1663,13 @@ export function _test_clearRunningSessions(): void {
   }
 }
 
-export function cancelAll(): void {
+/**
+ * Cancel every mutable operation and wait for every managed ComfyUI process
+ * tree to stop. This is the shutdown primitive for a deliberate application
+ * exit; callers must not let the Electron process disappear while child
+ * Python processes are still draining.
+ */
+export async function cancelAllAndWait(): Promise<void> {
   for (const [_id, abort] of _operationAborts) {
     abort.abort()
   }
@@ -1678,5 +1684,12 @@ export function cancelAll(): void {
       // Telemetry must never block application teardown.
     }
   }
-  void stopRunning()
+  await stopRunning()
+}
+
+/** Backwards-compatible fire-and-forget cancellation for callers that do not
+ * own application shutdown. Deliberate quit paths use {@link cancelAllAndWait}.
+ */
+export function cancelAll(): void {
+  void cancelAllAndWait()
 }

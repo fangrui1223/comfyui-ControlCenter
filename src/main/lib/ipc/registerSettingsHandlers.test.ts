@@ -76,6 +76,34 @@ describe('buildSettingsSections', () => {
     ).toBe(false)
   })
 
+  it('offers the close behavior selector with tray as the default', () => {
+    const fields = buildSettingsSections().flatMap(
+      (s) =>
+        (s.fields as
+          | { id?: string; label?: string; type?: string; value?: unknown; options?: unknown[] }[]
+          | undefined) ?? []
+    )
+
+    expect(fields).toContainEqual(
+      expect.objectContaining({
+        id: 'onAppClose',
+        label: 'When app is closed',
+        type: 'select',
+        value: 'tray',
+        options: [
+          { value: 'tray', label: 'Minimize to tray (keep instances running)' },
+          { value: 'quit', label: 'Stop all instances and quit' }
+        ]
+      })
+    )
+
+    mockSettings.onAppClose = 'quit'
+    const quitField = buildSettingsSections()
+      .flatMap((s) => (s.fields as { id?: string; value?: unknown }[] | undefined) ?? [])
+      .find((field) => field.id === 'onAppClose')
+    expect(quitField?.value).toBe('quit')
+  })
+
   it('offers hardware acceleration under Advanced with a restart notice', () => {
     const sections = buildSettingsSections()
     const generalFields =

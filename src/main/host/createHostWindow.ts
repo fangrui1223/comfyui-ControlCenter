@@ -36,6 +36,7 @@ import { getUserTier } from '../lib/userTier'
 import { trackFirebaseAuthReporter } from '../lib/firebaseAuthIdentity'
 import { forwardDatadogError } from '../lib/processErrorHandlers'
 import { recordDashboardSurface, recordInstanceSurface } from '../lib/lastSession'
+import { isQuitInProgress } from '../lib/quit-state'
 import * as settings from '../settings'
 import * as updater from '../lib/updater'
 import { getSavedBounds, getWindowOptions, saveWindowBounds } from '../lib/windowState'
@@ -152,6 +153,12 @@ export function shouldBailAfterCloseChoice(
   return choice === 'cancel' && !forceClose
 }
 
+/** User-selected close behavior only applies to a normal OS close. Explicit
+ * teardown and application quit retain their existing close semantics. */
+export function shouldHandleUserCloseIntent(quitInProgress: boolean, preCleared: boolean): boolean {
+  return !quitInProgress && !preCleared
+}
+
 /** Constants reused by both host modes. Defined here because they only
  *  matter in the context of host-window construction. */
 const APP_ICON = path.join(__dirname, '..', '..', 'assets', 'FR_ControlCenter_x256.png')
@@ -196,6 +203,9 @@ export interface HostWindowFactories {
   /** WeakSet of host windows whose close was pre-cleared by the
    *  consult-once-and-confirm path. */
   preClearedClose: WeakSet<BrowserWindow>
+  /** Handles an ordinary OS close before per-window teardown begins. Returns
+   * true when the caller hid the app or started a managed app exit. */
+  handleUserCloseIntent?: (window: BrowserWindow) => boolean
   /** Compute whether an install has a pending in-app update. */
   computeInstallUpdateAvailable: (
     installationId: string
@@ -843,6 +853,12 @@ export function createHostWindow(opts: CreateHostWindowOpts): CreateHostWindowRe
   comfyWindow.on('close', (e) => {
     e.preventDefault()
     if (closingInFlight) return
+    if (
+      shouldHandleUserCloseIntent(isQuitInProgress(), fx.preClearedClose.has(comfyWindow)) &&
+      fx.handleUserCloseIntent?.(comfyWindow)
+    ) {
+      return
+    }
     closingInFlight = true
     void (async () => {
       try {

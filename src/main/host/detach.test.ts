@@ -17,7 +17,12 @@ vi.mock('electron', () => ({
 
 import { _runningSessions } from '../lib/ipc/shared'
 import { comfyWindows, nextWindowKey, type ComfyWindowEntry } from './registry'
-import { closeAllHostWindows, detachOrphanedInstallHosts, preClearedClose } from './detach'
+import {
+  closeAllHostWindows,
+  detachOrphanedInstallHosts,
+  preClearedClose,
+  shouldConfirmManagedQuit
+} from './detach'
 
 interface FakeWindow {
   destroyed: boolean
@@ -193,5 +198,19 @@ describe('preClearedClose', () => {
     preClearedClose.add(a as unknown as Electron.BrowserWindow)
     expect(preClearedClose.delete(a as unknown as Electron.BrowserWindow)).toBe(true)
     expect(preClearedClose.has(a as unknown as Electron.BrowserWindow)).toBe(false)
+  })
+})
+
+describe('shouldConfirmManagedQuit', () => {
+  it('requires confirmation for local instance windows', () => {
+    expect(shouldConfirmManagedQuit(1, false)).toBe(true)
+  })
+
+  it('requires confirmation for operations or downloads even without a local window', () => {
+    expect(shouldConfirmManagedQuit(0, true)).toBe(true)
+  })
+
+  it('does not prompt for an idle application', () => {
+    expect(shouldConfirmManagedQuit(0, false)).toBe(false)
   })
 })

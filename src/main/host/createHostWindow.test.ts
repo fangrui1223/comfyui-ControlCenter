@@ -23,6 +23,7 @@ import {
   cascadeOffsetForCollisions,
   expectedPartitionFor,
   installCloseNeedsConfirm,
+  shouldHandleUserCloseIntent,
   isWindowLayoutable,
   shouldBailAfterCloseChoice,
   shouldBailAfterConsult,
@@ -238,5 +239,13 @@ describe('shouldBailAfterCloseChoice', () => {
     // Mirrors the consult re-check: a caller-side force-close that
     // arrives while the modal is open must override the user's cancel.
     expect(shouldBailAfterCloseChoice('cancel', true)).toBe(false)
+  })
+})
+
+describe('shouldHandleUserCloseIntent', () => {
+  it('only delegates normal user closes to the app-level tray or quit behavior', () => {
+    expect(shouldHandleUserCloseIntent(false, false)).toBe(true)
+    expect(shouldHandleUserCloseIntent(true, false)).toBe(false)
+    expect(shouldHandleUserCloseIntent(false, true)).toBe(false)
   })
 })

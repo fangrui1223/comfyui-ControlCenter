@@ -295,8 +295,7 @@ function isNullableKnownSettingKey(key: KnownSettingKey): key is NullableKnownSe
 export const defaults: SettingsDefaults = {
   cacheDir: defaultDownloadCacheDir(),
   maxCachedDownloads: 1,
-  // Docking-to-tray is disabled (createTray() is currently a no-op).
-  onAppClose: 'quit',
+  onAppClose: 'tray',
   modelsDirs: [path.join(SHARED_ROOT, 'models')],
   inputDir: path.join(SHARED_ROOT, 'input'),
   outputDir: path.join(SHARED_ROOT, 'output'),
@@ -463,14 +462,6 @@ function loadOutcome(): { settings: Settings; unreadable: boolean } {
       delete result[key]
       changed = true
     }
-  }
-
-  // Drop a stale `onAppClose: 'tray'` while docking is disabled, else it would
-  // silently take effect the moment docking is restored. Preserves a `'quit'`
-  // choice.
-  if (result.onAppClose === 'tray') {
-    delete (result as Record<string, unknown>).onAppClose
-    changed = true
   }
 
   if (shouldSanitizeCopiedUserDefaults) {
