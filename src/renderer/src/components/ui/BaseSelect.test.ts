@@ -80,3 +80,35 @@ describe('BaseSelect positioning', () => {
     expect(listbox!.style.maxHeight).toBe('80px')
   })
 })
+
+describe('BaseSelect search', () => {
+  it('shows the configured recent limit, then searches across the full option list', async () => {
+    const options = Array.from({ length: 30 }, (_, index) => `v0.1.${29 - index}`)
+    const wrapper = mount(BaseSelect, {
+      props: {
+        modelValue: '',
+        options: options.map((label) => ({ value: label, label })),
+        ariaLabel: 'Version',
+        searchable: true,
+        searchPlaceholder: 'Search versions',
+        maxVisibleOptions: 20
+      },
+      attachTo: document.body
+    })
+    wrappers.push(wrapper)
+
+    await wrapper.get('.ui-select-trigger').trigger('click')
+    await flushPromises()
+    expect(document.querySelectorAll('.ui-select-option')).toHaveLength(20)
+
+    const input = document.querySelector<HTMLInputElement>('.ui-select-search')!
+    input.value = 'v0.1.3'
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await flushPromises()
+
+    const labels = [...document.querySelectorAll('.ui-select-option-label')].map(
+      (node) => node.textContent
+    )
+    expect(labels).toEqual(['v0.1.3'])
+  })
+})

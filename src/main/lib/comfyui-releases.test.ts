@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('./git', () => ({
+  listLocalCommits: vi.fn(),
   lsRemoteLatestTag: vi.fn(),
   lsRemoteRef: vi.fn(),
   lsRemoteStableTags: vi.fn(),
@@ -20,22 +21,34 @@ vi.mock('../settings', () => ({
   get: vi.fn(() => undefined)
 }))
 
-import { lsRemoteLatestTag, lsRemoteRef, lsRemoteStableTags } from './git'
+vi.mock('./fetch', () => ({
+  fetchJSON: vi.fn()
+}))
+
+import { listLocalCommits, lsRemoteLatestTag, lsRemoteRef, lsRemoteStableTags } from './git'
+import { fetchJSON } from './fetch'
 import {
+  fetchStableRelease,
   fetchLatestRelease,
+  getDevelopmentRevisions,
   getLatestStableTag,
+  getStableReleaseInfo,
   getStableTags,
   _clearLatestStableTagCache
 } from './comfyui-releases'
 import * as settings from '../settings'
 
 const mockedLsRemoteLatestTag = vi.mocked(lsRemoteLatestTag)
+const mockedListLocalCommits = vi.mocked(listLocalCommits)
 const mockedLsRemoteRef = vi.mocked(lsRemoteRef)
 const mockedLsRemoteStableTags = vi.mocked(lsRemoteStableTags)
 const mockedSettingsGet = vi.mocked(settings.get)
+const mockedFetchJSON = vi.mocked(fetchJSON)
 
 beforeEach(() => {
   vi.resetAllMocks()
+  mockedFetchJSON.mockRejectedValue(new Error('release metadata unavailable'))
+  mockedLsRemoteRef.mockResolvedValue(null)
   _clearLatestStableTagCache()
 })
 
@@ -87,6 +100,7 @@ describe('fetchLatestRelease', () => {
       await fetchLatestRelease('latest')
       expect(mockedLsRemoteRef).toHaveBeenCalled()
       expect(mockedLsRemoteLatestTag).toHaveBeenCalled()
+      expect(mockedFetchJSON).not.toHaveBeenCalled()
     })
   })
 
@@ -100,6 +114,45 @@ describe('fetchLatestRelease', () => {
       expect(result!.baseTag).toBe('v0.18.3')
       expect(result!.commitsAhead).toBe(0)
       expect(result!.body).toBe('')
+    })
+
+    it('enriches the stable tag with upstream release notes when available', async () => {
+      mockedLsRemoteLatestTag.mockResolvedValue('v0.18.3')
+      mockedFetchJSON.mockResolvedValue({
+        tag_name: 'v0.18.3',
+        name: 'ComfyUI v0.18.3',
+        body: 'Added useful things',
+        html_url: 'https://github.com/Comfy-Org/ComfyUI/releases/tag/v0.18.3',
+        published_at: '2026-08-17T08:00:00Z'
+      })
+
+      const result = await fetchLatestRelease('stable')
+
+      expect(result).toMatchObject({
+        tag_name: 'v0.18.3',
+        name: 'ComfyUI v0.18.3',
+        body: 'Added useful things',
+        html_url: 'https://github.com/Comfy-Org/ComfyUI/releases/tag/v0.18.3',
+        published_at: '2026-08-17T08:00:00Z',
+        baseTag: 'v0.18.3',
+        commitsAhead: 0
+      })
+      expect(mockedFetchJSON).toHaveBeenCalledWith(
+        'https://api.github.com/repos/Comfy-Org/ComfyUI/releases/tags/v0.18.3',
+        { refresh: undefined }
+      )
+    })
+
+    it('keeps the git tag result when release metadata lookup fails', async () => {
+      mockedLsRemoteLatestTag.mockResolvedValue('v0.18.3')
+      mockedFetchJSON.mockRejectedValue(new Error('rate limited'))
+
+      await expect(fetchLatestRelease('stable')).resolves.toMatchObject({
+        tag_name: 'v0.18.3',
+        name: 'v0.18.3',
+        body: '',
+        baseTag: 'v0.18.3'
+      })
     })
 
     it('returns null when no tags found', async () => {
@@ -230,6 +283,123 @@ describe('fetchLatestRelease', () => {
         'refs/heads/master'
       )
     })
+  })
+})
+
+describe('historical stable release metadata', () => {
+  it('rejects anything that is not a strict stable tag without network access', async () => {
+    await expect(fetchStableRelease('master')).resolves.toBeNull()
+    await expect(fetchStableRelease('v0.18.3-rc1')).resolves.toBeNull()
+    expect(mockedFetchJSON).not.toHaveBeenCalled()
+  })
+
+  it('returns renderer-safe notes for a selected historical tag', async () => {
+    mockedFetchJSON.mockResolvedValue({
+      name: 'ComfyUI v0.18.2',
+      body: 'Historical release notes',
+      html_url: 'https://github.com/Comfy-Org/ComfyUI/releases/tag/v0.18.2',
+      published_at: '2026-08-10T08:00:00Z'
+    })
+
+    await expect(getStableReleaseInfo('v0.18.2')).resolves.toEqual({
+      tag: 'v0.18.2',
+      name: 'ComfyUI v0.18.2',
+      notes: 'Historical release notes',
+      url: 'https://github.com/Comfy-Org/ComfyUI/releases/tag/v0.18.2',
+      publishedAt: '2026-08-10T08:00:00Z'
+    })
+  })
+
+  it('replaces an unsafe upstream release URL with the canonical HTTPS page', async () => {
+    mockedFetchJSON.mockResolvedValue({
+      name: 'ComfyUI v0.18.2',
+      body: '',
+      html_url: 'javascript:alert(1)'
+    })
+
+    const result = await getStableReleaseInfo('v0.18.2')
+    expect(result?.url).toBe('https://github.com/Comfy-Org/ComfyUI/releases/tag/v0.18.2')
+  })
+})
+
+describe('development revisions', () => {
+  it('prefers local history for the exact remote head and avoids the rate-limited API', async () => {
+    const headSha = `abc1234${'d'.repeat(33)}`
+    const olderSha = `def456a${'b'.repeat(33)}`
+    mockedListLocalCommits.mockResolvedValue([
+      { sha: headSha, title: 'Newest local commit', committedAt: '2026-08-18T10:00:00Z' },
+      { sha: olderSha, title: 'Older local commit', committedAt: '2026-08-18T09:00:00Z' }
+    ])
+
+    await expect(
+      getDevelopmentRevisions({ repoPath: 'C:\\Next\\ComfyUI', headSha })
+    ).resolves.toEqual([
+      {
+        sha: headSha,
+        shortSha: 'abc1234',
+        title: 'Newest local commit',
+        url: `https://github.com/Comfy-Org/ComfyUI/commit/${headSha}`,
+        committedAt: '2026-08-18T10:00:00Z'
+      },
+      {
+        sha: olderSha,
+        shortSha: 'def456a',
+        title: 'Older local commit',
+        url: `https://github.com/Comfy-Org/ComfyUI/commit/${olderSha}`,
+        committedAt: '2026-08-18T09:00:00Z'
+      }
+    ])
+    expect(mockedListLocalCommits).toHaveBeenCalledWith('C:\\Next\\ComfyUI', headSha, 20)
+    expect(mockedFetchJSON).not.toHaveBeenCalled()
+  })
+
+  it('returns the newest master commits with searchable metadata', async () => {
+    const sha = `abc1234${'d'.repeat(33)}`
+    mockedFetchJSON.mockResolvedValue([
+      {
+        sha,
+        html_url: `https://github.com/Comfy-Org/ComfyUI/commit/${sha}`,
+        commit: {
+          message: 'Add a new sampler\n\nLong body',
+          committer: { date: '2026-08-18T08:00:00Z' }
+        }
+      }
+    ])
+
+    await expect(getDevelopmentRevisions()).resolves.toEqual([
+      {
+        sha,
+        shortSha: 'abc1234',
+        title: 'Add a new sampler',
+        url: `https://github.com/Comfy-Org/ComfyUI/commit/${sha}`,
+        committedAt: '2026-08-18T08:00:00Z'
+      }
+    ])
+    expect(mockedFetchJSON).toHaveBeenCalledWith(
+      'https://api.github.com/repos/Comfy-Org/ComfyUI/commits?sha=master&per_page=20',
+      { refresh: undefined }
+    )
+  })
+
+  it('falls back to the remote master head when commit metadata is unavailable', async () => {
+    const sha = `def456a${'b'.repeat(33)}`
+    mockedFetchJSON.mockRejectedValue(new Error('offline'))
+    mockedLsRemoteRef.mockResolvedValue(sha)
+
+    await expect(getDevelopmentRevisions()).resolves.toEqual([
+      {
+        sha,
+        shortSha: 'def456a',
+        title: 'master def456a',
+        url: `https://github.com/Comfy-Org/ComfyUI/commit/${sha}`
+      }
+    ])
+  })
+
+  it('drops malformed commit entries', async () => {
+    mockedFetchJSON.mockResolvedValue([{ sha: 'not-a-sha' }])
+    mockedLsRemoteRef.mockResolvedValue(null)
+    await expect(getDevelopmentRevisions()).resolves.toEqual([])
   })
 })
 

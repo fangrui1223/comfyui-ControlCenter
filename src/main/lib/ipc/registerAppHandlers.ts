@@ -34,7 +34,7 @@ import * as mainTelemetry from '../telemetry'
 import { getDeviceId } from '../deviceId'
 import { getCloudFreeRunsEnabledAsync } from '../cloudFreeRuns'
 import { getUserTierAsync } from '../userTier'
-import { getStableTags } from '../comfyui-releases'
+import { getDevelopmentRevisions, getStableReleaseInfo, getStableTags } from '../comfyui-releases'
 import { deriveGpuTier } from '../../../shared/gpuTier'
 
 export function registerAppHandlers(): void {
@@ -45,6 +45,32 @@ export function registerAppHandlers(): void {
   // install-wizard and the per-install ChannelPicker version dropdown.
   // Returns `[]` (never throws) when the remote is unreachable.
   ipcMain.handle('get-stable-tags', () => getStableTags())
+
+  // One historical stable release for the per-install version target card.
+  // Validate the renderer input before it reaches the release fetcher.
+  ipcMain.handle('get-comfyui-release', (_event, tag: unknown) =>
+    typeof tag === 'string' ? getStableReleaseInfo(tag) : null
+  )
+
+  ipcMain.handle(
+    'get-comfyui-development-revisions',
+    async (_event, installationId: unknown, headSha: unknown) => {
+      let repoPath: string | undefined
+      if (typeof installationId === 'string') {
+        const installation = await installations.get(installationId)
+        if (installation?.installPath) {
+          const nestedRepo = path.join(installation.installPath, 'ComfyUI')
+          repoPath = fs.existsSync(path.join(nestedRepo, '.git'))
+            ? nestedRepo
+            : installation.installPath
+        }
+      }
+      return getDevelopmentRevisions({
+        ...(repoPath ? { repoPath } : {}),
+        ...(typeof headSha === 'string' ? { headSha } : {})
+      })
+    }
+  )
 
   // Signed-in user's Comfy Cloud subscription tier ('free' | 'paid' |
   // 'unknown'). Hydrated from a persisted file at boot and refreshed on

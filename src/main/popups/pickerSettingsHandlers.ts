@@ -81,6 +81,21 @@ export function registerPickerSettingsIpc(options: PickerSettingsIpcOptions): vo
 
   ipcMain.handle(CH.getStableTags, (event) => dispatchInvoke('get-stable-tags', event))
 
+  ipcMain.handle(CH.getComfyUIRelease, (event, payload: { tag?: unknown }) =>
+    dispatchInvoke('get-comfyui-release', event, payload?.tag)
+  )
+
+  ipcMain.handle(
+    CH.getComfyUIDevelopmentRevisions,
+    (event, payload: { installationId?: unknown; headSha?: unknown }) =>
+      dispatchInvoke(
+        'get-comfyui-development-revisions',
+        event,
+        payload?.installationId,
+        payload?.headSha
+      )
+  )
+
   ipcMain.handle(CH.getUniqueName, (event, payload: { baseName?: unknown }) =>
     dispatchInvoke('get-unique-name', event, payload?.baseName)
   )

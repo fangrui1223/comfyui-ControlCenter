@@ -13,6 +13,7 @@ Subcommands:
   describe-tags      <repo_path> [commit]
   tag-list           <repo_path>
   rev-list-count     <repo_path> <tag_or_ref> [commit]
+  log                 <repo_path> <ref> [limit]
   cherry-pick-count  <repo_path> <ref1> <ref2>
   merge-base         <repo_path> <ref1> <ref2>
   is-ancestor        <repo_path> <ancestor> <descendant>
@@ -26,10 +27,12 @@ Subcommands:
 """
 
 import os
+import json
 import re
 import sys
 import time
 from collections import deque
+from datetime import datetime, timedelta, timezone
 
 import pygit2
 
@@ -60,8 +63,10 @@ except (ImportError, AttributeError):
 try:
     from pygit2.enums import SortMode as _SortMode
     GIT_SORT_TOPOLOGICAL = int(_SortMode.TOPOLOGICAL)
+    GIT_SORT_TIME = int(_SortMode.TIME)
 except (ImportError, AttributeError):
     GIT_SORT_TOPOLOGICAL = pygit2.GIT_SORT_TOPOLOGICAL  # pre-1.15
+    GIT_SORT_TIME = pygit2.GIT_SORT_TIME
 
 
 # ---------------------------------------------------------------------------
@@ -230,6 +235,25 @@ def cmd_rev_parse(repo_path, ref):
     repo = open_repo(repo_path)
     oid = resolve_ref(repo, ref)
     print(str(oid))
+
+
+def cmd_log(repo_path, ref, limit=20):
+    """Print recent commits as one JSON object per line, newest first."""
+    repo = open_repo(repo_path)
+    oid = resolve_ref(repo, ref)
+    limit = max(1, min(100, int(limit)))
+    walker = repo.walk(oid, GIT_SORT_TOPOLOGICAL | GIT_SORT_TIME)
+    for index, commit in enumerate(walker):
+        if index >= limit:
+            break
+        title = (commit.message or "").splitlines()[0].strip()
+        offset = timezone(timedelta(minutes=commit.commit_time_offset))
+        committed_at = datetime.fromtimestamp(commit.commit_time, offset).isoformat()
+        print(json.dumps({
+            "sha": str(commit.id),
+            "committedAt": committed_at,
+            "title": title,
+        }, ensure_ascii=False))
 
 
 def cmd_describe_tags(repo_path, commit="HEAD"):
@@ -831,6 +855,7 @@ Subcommands:
   describe-tags      <repo_path> [commit]
   tag-list           <repo_path>
   rev-list-count     <repo_path> <tag_or_ref> [commit]
+  log                 <repo_path> <ref> [limit]
   cherry-pick-count  <repo_path> <ref1> <ref2>
   merge-base         <repo_path> <ref1> <ref2>
   is-ancestor        <repo_path> <ancestor> <descendant>
@@ -886,6 +911,13 @@ if __name__ == "__main__":
                 sys.exit(1)
             commit = sys.argv[4] if len(sys.argv) > 4 else "HEAD"
             cmd_rev_list_count(sys.argv[2], sys.argv[3], commit)
+
+        elif subcmd == "log":
+            if len(sys.argv) < 4:
+                print("Usage: git_operations.py log <repo_path> <ref> [limit]", file=sys.stderr)
+                sys.exit(1)
+            limit = sys.argv[4] if len(sys.argv) > 4 else "20"
+            cmd_log(sys.argv[2], sys.argv[3], limit)
 
         elif subcmd == "cherry-pick-count":
             if len(sys.argv) < 5:

@@ -191,6 +191,9 @@ export function buildElectronApi(): ElectronApi {
     // App
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     getStableTags: (): Promise<string[]> => ipcRenderer.invoke('get-stable-tags'),
+    getComfyUIRelease: (tag: string) => ipcRenderer.invoke('get-comfyui-release', tag),
+    getComfyUIDevelopmentRevisions: (installationId?: string, headSha?: string) =>
+      ipcRenderer.invoke('get-comfyui-development-revisions', installationId, headSha),
     getCloudUserTier: () => ipcRenderer.invoke('get-cloud-user-tier'),
     getCloudFreeRunsEnabled: () => ipcRenderer.invoke('get-cloud-free-runs-enabled'),
     quitApp: () => ipcRenderer.invoke('quit-app'),

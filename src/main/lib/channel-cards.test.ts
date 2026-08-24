@@ -66,6 +66,10 @@ describe('buildChannelCards — latest channel +commits formatting', () => {
     const cards = buildChannelCards(REPO, DEFS, baseInstall())
     const latest = cards.find((c) => c.value === 'latest')!
     expect(latest.data?.latestVersion).toBe(`${BASE_TAG} + 12 commits (${HEAD_SHORT})`)
+    expect(latest.data).toMatchObject({
+      installationId: 'inst-1',
+      latestCommit: HEAD_SHA
+    })
   })
 
   it('renders the bare `tag` when the install is exactly on the latest commit', () => {
@@ -177,5 +181,58 @@ describe('buildChannelCards — enriching flag', () => {
     const cards = buildChannelCards(REPO, DEFS, baseInstall())
     const latest = cards.find((c) => c.value === 'latest')!
     expect(latest.data?.enriching).toBeUndefined()
+  })
+})
+
+describe('buildChannelCards — release metadata', () => {
+  beforeEach(() => {
+    vi.mocked(releaseCache.getEffectiveInfo).mockReset()
+    vi.mocked(releaseCache.isUpdateAvailable).mockReset().mockReturnValue(true)
+    vi.mocked(gitMock.hasGitDir).mockReset().mockReturnValue(true)
+  })
+
+  it('forwards release notes, publish time, and safe release URL to ComfyUI cards', () => {
+    vi.mocked(releaseCache.getEffectiveInfo).mockImplementation((_repo, channel) => {
+      if (channel !== 'stable') return null
+      return {
+        installedTag: 'v0.18.2',
+        latestTag: 'v0.18.3',
+        releaseName: 'ComfyUI v0.18.3',
+        releaseNotes: '  Added useful things.  ',
+        releaseUrl: 'https://github.com/Comfy-Org/ComfyUI/releases/tag/v0.18.3',
+        publishedAt: '2026-08-17T08:00:00Z',
+        checkedAt: Date.now()
+      }
+    })
+
+    const stable = buildChannelCards(REPO, DEFS, baseInstall()).find(
+      (card) => card.value === 'stable'
+    )!
+
+    expect(stable.data).toMatchObject({
+      showReleaseInfo: true,
+      releaseNotes: 'Added useful things.',
+      releaseUrl: 'https://github.com/Comfy-Org/ComfyUI/releases/tag/v0.18.3',
+      publishedAt: '2026-08-17T08:00:00Z'
+    })
+  })
+
+  it('does not forward non-http release URLs', () => {
+    vi.mocked(releaseCache.getEffectiveInfo).mockImplementation((_repo, channel) => {
+      if (channel !== 'stable') return null
+      return {
+        installedTag: 'v0.18.2',
+        latestTag: 'v0.18.3',
+        releaseUrl: 'javascript:alert(1)',
+        checkedAt: Date.now()
+      }
+    })
+
+    const stable = buildChannelCards(REPO, DEFS, baseInstall()).find(
+      (card) => card.value === 'stable'
+    )!
+
+    expect(stable.data?.showReleaseInfo).toBe(true)
+    expect(stable.data?.releaseUrl).toBeUndefined()
   })
 })

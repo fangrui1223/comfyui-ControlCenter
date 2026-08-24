@@ -584,6 +584,86 @@ export function countCommitsAhead(
   })
 }
 
+export interface GitCommitSummary {
+  sha: string
+  title: string
+  committedAt?: string
+}
+
+function parseCommitSummary(value: unknown): GitCommitSummary | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const record = value as Record<string, unknown>
+  const sha = typeof record.sha === 'string' ? record.sha.trim() : ''
+  if (!/^[0-9a-f]{40}$/i.test(sha)) return null
+  const title = typeof record.title === 'string' ? record.title.trim() : ''
+  const committedAt =
+    typeof record.committedAt === 'string' && record.committedAt.trim()
+      ? record.committedAt.trim()
+      : undefined
+  return { sha, title: title || sha.slice(0, 7), ...(committedAt ? { committedAt } : {}) }
+}
+
+/** Read recent commits already present in a local repository without fetching
+ * or changing refs. This avoids GitHub REST rate limits while keeping the
+ * version picker aligned to the exact remote HEAD resolved by the update
+ * check. Returns [] when the requested object is not available locally. */
+export function listLocalCommits(
+  repoPath: string,
+  ref: string,
+  limit: number = 20
+): Promise<GitCommitSummary[]> {
+  const boundedLimit = Math.min(100, Math.max(1, Math.trunc(limit)))
+  if (isPygit2Configured()) {
+    return runPygit2(['log', repoPath, ref, String(boundedLimit)]).then(({ exitCode, stdout }) => {
+      if (exitCode !== 0) return []
+      return stdout
+        .split(/\r?\n/)
+        .filter(Boolean)
+        .flatMap((line): GitCommitSummary[] => {
+          try {
+            const parsed = parseCommitSummary(JSON.parse(line))
+            return parsed ? [parsed] : []
+          } catch {
+            return []
+          }
+        })
+        .slice(0, boundedLimit)
+    })
+  }
+
+  return new Promise((resolve) => {
+    execFile(
+      'git',
+      ['log', ref, '-n', String(boundedLimit), '--date=iso-strict', '--format=%H%x1f%cI%x1f%s%x1e'],
+      {
+        cwd: repoPath,
+        encoding: 'utf-8',
+        windowsHide: true,
+        timeout: 3000
+      },
+      (error, stdout) => {
+        if (error) {
+          resolve([])
+          return
+        }
+        const commits = stdout
+          .split('\x1e')
+          .flatMap((chunk): GitCommitSummary[] => {
+            const [sha = '', committedAt = '', ...titleParts] = chunk.trim().split('\x1f')
+            const parsed = parseCommitSummary({
+              sha,
+              committedAt,
+              title: titleParts.join('\x1f')
+            })
+            return parsed ? [parsed] : []
+          })
+          .slice(0, boundedLimit)
+        resolve(commits)
+      }
+    )
+  })
+}
+
 /**
  * Find the nearest ancestor tag reachable from HEAD.  Runs `git describe`
  * asynchronously (local operation, no network).  Returns undefined if git is

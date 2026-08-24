@@ -18,12 +18,22 @@ interface Props {
   ariaLabel?: string
   placeholder?: string
   disabled?: boolean
+  searchable?: boolean
+  searchPlaceholder?: string
+  emptyLabel?: string
+  /** Limits the unfiltered list (for example, 20 recent releases). Search
+   * still examines every option and then caps the matching result. */
+  maxVisibleOptions?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
   ariaLabel: undefined,
   placeholder: '',
-  disabled: false
+  disabled: false,
+  searchable: false,
+  searchPlaceholder: '',
+  emptyLabel: 'No matching options',
+  maxVisibleOptions: undefined
 })
 
 const emit = defineEmits<{
@@ -32,13 +42,33 @@ const emit = defineEmits<{
 
 const triggerRef = ref<HTMLButtonElement | null>(null)
 const listboxRef = ref<HTMLUListElement | null>(null)
+const searchRef = ref<HTMLInputElement | null>(null)
 const open = ref(false)
 const activeIndex = ref(-1)
+const searchQuery = ref('')
 const popoverStyle = ref<Record<string, string>>({})
 
 const selectedOption = computed(() => props.options.find((o) => o.value === props.modelValue))
 
 const triggerLabel = computed(() => selectedOption.value?.label ?? props.placeholder)
+
+const visibleOptions = computed(() => {
+  const limit = props.maxVisibleOptions
+  const query = searchQuery.value.trim().toLowerCase()
+  const matches = query
+    ? props.options.filter(
+        (option) =>
+          option.label.toLowerCase().includes(query) || option.value.toLowerCase().includes(query)
+      )
+    : props.options
+  if (!limit || limit <= 0 || matches.length <= limit) return matches
+  const sliced = matches.slice(0, limit)
+  // Keep an already-selected older result visible when reopening the picker.
+  if (!query && selectedOption.value && !sliced.some((o) => o.value === props.modelValue)) {
+    return [...sliced.slice(0, Math.max(0, limit - 1)), selectedOption.value]
+  }
+  return sliced
+})
 
 const listboxId = `ui-listbox-${Math.random().toString(36).slice(2, 9)}`
 const POPOVER_GAP = 2
@@ -53,7 +83,9 @@ function updatePosition(): void {
   const rect = trigger.getBoundingClientRect()
   const spaceBelow = Math.max(0, window.innerHeight - rect.bottom - POPOVER_GAP - VIEWPORT_PADDING)
   const spaceAbove = Math.max(0, rect.top - POPOVER_GAP - VIEWPORT_PADDING)
-  const estimatedHeight = props.options.length * ESTIMATED_OPTION_HEIGHT + ESTIMATED_LISTBOX_CHROME
+  const estimatedHeight =
+    (visibleOptions.value.length + (props.searchable ? 1 : 0)) * ESTIMATED_OPTION_HEIGHT +
+    ESTIMATED_LISTBOX_CHROME
   const measuredHeight = listboxRef.value
     ? listboxRef.value.scrollHeight +
       Math.max(0, listboxRef.value.offsetHeight - listboxRef.value.clientHeight)
@@ -74,14 +106,16 @@ function updatePosition(): void {
 
 function openPanel(): void {
   if (open.value || props.disabled) return
+  searchQuery.value = ''
   open.value = true
-  const idx = props.options.findIndex((o) => o.value === props.modelValue && !o.disabled)
-  activeIndex.value = idx >= 0 ? idx : props.options.findIndex((o) => !o.disabled)
+  const idx = visibleOptions.value.findIndex((o) => o.value === props.modelValue && !o.disabled)
+  activeIndex.value = idx >= 0 ? idx : visibleOptions.value.findIndex((o) => !o.disabled)
   updatePosition()
   void nextTick(() => {
     // The rendered list may be taller than the per-option estimate.
     updatePosition()
-    listboxRef.value?.focus()
+    if (props.searchable) searchRef.value?.focus()
+    else listboxRef.value?.focus()
     scrollActiveIntoView()
   })
 }
@@ -100,19 +134,19 @@ function toggle(): void {
 }
 
 function selectIndex(i: number): void {
-  const opt = props.options[i]
+  const opt = visibleOptions.value[i]
   if (!opt || opt.disabled) return
   emit('update:modelValue', opt.value)
   closePanel()
 }
 
 function moveActive(delta: number): void {
-  const len = props.options.length
+  const len = visibleOptions.value.length
   if (len === 0) return
   let i = activeIndex.value
   for (let step = 0; step < len; step++) {
     i = (i + delta + len) % len
-    if (!props.options[i]?.disabled) {
+    if (!visibleOptions.value[i]?.disabled) {
       activeIndex.value = i
       scrollActiveIntoView()
       return
@@ -140,6 +174,7 @@ function onTriggerKeydown(event: KeyboardEvent): void {
 }
 
 function onListboxKeydown(event: KeyboardEvent): void {
+  const fromSearch = event.target === searchRef.value
   switch (event.key) {
     case 'ArrowDown':
       event.preventDefault()
@@ -150,14 +185,16 @@ function onListboxKeydown(event: KeyboardEvent): void {
       moveActive(-1)
       break
     case 'Home':
+      if (fromSearch) return
       event.preventDefault()
-      activeIndex.value = props.options.findIndex((o) => !o.disabled)
+      activeIndex.value = visibleOptions.value.findIndex((o) => !o.disabled)
       scrollActiveIntoView()
       break
     case 'End':
+      if (fromSearch) return
       event.preventDefault()
-      for (let i = props.options.length - 1; i >= 0; i--) {
-        if (!props.options[i]?.disabled) {
+      for (let i = visibleOptions.value.length - 1; i >= 0; i--) {
+        if (!visibleOptions.value[i]?.disabled) {
           activeIndex.value = i
           scrollActiveIntoView()
           break
@@ -166,6 +203,7 @@ function onListboxKeydown(event: KeyboardEvent): void {
       break
     case 'Enter':
     case ' ':
+      if (fromSearch) return
       event.preventDefault()
       if (activeIndex.value >= 0) selectIndex(activeIndex.value)
       break
@@ -178,6 +216,11 @@ function onListboxKeydown(event: KeyboardEvent): void {
       break
   }
 }
+
+watch(searchQuery, () => {
+  activeIndex.value = visibleOptions.value.findIndex((option) => !option.disabled)
+  void nextTick(updatePosition)
+})
 
 function onDocPointer(event: PointerEvent): void {
   if (!open.value) return
@@ -252,8 +295,19 @@ onBeforeUnmount(() => {
         :aria-label="ariaLabel"
         @keydown="onListboxKeydown"
       >
+        <li v-if="searchable" class="ui-select-search-row" role="presentation">
+          <input
+            ref="searchRef"
+            v-model="searchQuery"
+            type="search"
+            class="ui-select-search"
+            :placeholder="searchPlaceholder"
+            :aria-label="searchPlaceholder || ariaLabel"
+            autocomplete="off"
+          />
+        </li>
         <li
-          v-for="(opt, i) in options"
+          v-for="(opt, i) in visibleOptions"
           :key="opt.value"
           class="ui-select-option"
           role="option"
@@ -270,6 +324,9 @@ onBeforeUnmount(() => {
             <span v-if="opt.description" class="ui-select-option-desc">{{ opt.description }}</span>
           </span>
           <Check v-if="opt.value === modelValue" :size="14" class="ui-select-option-check" />
+        </li>
+        <li v-if="visibleOptions.length === 0" class="ui-select-empty" role="presentation">
+          {{ emptyLabel }}
         </li>
       </ul>
     </Transition>
@@ -406,6 +463,34 @@ onBeforeUnmount(() => {
 .ui-select-option-check {
   flex-shrink: 0;
   color: var(--accent-primary);
+}
+
+.ui-select-search-row {
+  padding: 4px;
+}
+
+.ui-select-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 8px;
+  border: 1px solid var(--chooser-surface-border);
+  border-radius: 6px;
+  background: var(--brand-surface-bg);
+  color: var(--neutral-100);
+  font: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
+.ui-select-search:focus {
+  border-color: var(--accent-primary);
+}
+
+.ui-select-empty {
+  padding: 10px;
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
 }
 
 .ui-select-pop-enter-active,

@@ -10,6 +10,7 @@ import { execFile, spawn } from 'child_process'
 import { EventEmitter } from 'events'
 import {
   countCommitsAhead,
+  listLocalCommits,
   findNearestTag,
   findLatestVersionTag,
   lsRemoteLatestTag,
@@ -110,6 +111,52 @@ describe('countCommitsAhead', () => {
       cb(null, 'bad\n', '')
     })
     expect(await countCommitsAhead('/repo', 'v0.14.2')).toBeUndefined()
+  })
+})
+
+describe('listLocalCommits', () => {
+  beforeEach(() => {
+    vi.resetAllMocks()
+    resetPygit2State()
+  })
+
+  it('parses newest-first local git log metadata without fetching', async () => {
+    const newest = 'a'.repeat(40)
+    const older = 'b'.repeat(40)
+    mockExecFile((_cmd, args, _opts, cb) => {
+      expect(args).toEqual([
+        'log',
+        newest,
+        '-n',
+        '20',
+        '--date=iso-strict',
+        '--format=%H%x1f%cI%x1f%s%x1e'
+      ])
+      cb(
+        null,
+        `${newest}\x1f2026-08-18T10:00:00+08:00\x1fNewest change\x1e\n${older}\x1f2026-08-18T09:00:00+08:00\x1fOlder change\x1e`,
+        ''
+      )
+    })
+
+    await expect(listLocalCommits('/repo', newest, 20)).resolves.toEqual([
+      {
+        sha: newest,
+        committedAt: '2026-08-18T10:00:00+08:00',
+        title: 'Newest change'
+      },
+      {
+        sha: older,
+        committedAt: '2026-08-18T09:00:00+08:00',
+        title: 'Older change'
+      }
+    ])
+    expect(mockedExecFile.mock.calls[0]?.[2]).toMatchObject({ cwd: '/repo' })
+  })
+
+  it('returns an empty list when the requested remote head is absent locally', async () => {
+    mockExecFile((_cmd, _args, _opts, cb) => cb(new Error('bad object'), '', ''))
+    await expect(listLocalCommits('/repo', 'c'.repeat(40))).resolves.toEqual([])
   })
 })
 

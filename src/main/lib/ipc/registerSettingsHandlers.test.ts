@@ -104,6 +104,36 @@ describe('buildSettingsSections', () => {
     expect(quitField?.value).toBe('quit')
   })
 
+  it('offers system browser as the default ComfyUI workspace target', () => {
+    const fields = buildSettingsSections().flatMap(
+      (section) =>
+        (section.fields as
+          | { id?: string; value?: unknown; options?: unknown[]; tooltip?: string }[]
+          | undefined) ?? []
+    )
+    const field = fields.find((candidate) => candidate.id === 'workspaceOpenMode')
+
+    expect(field).toEqual(
+      expect.objectContaining({
+        value: 'browser',
+        options: [
+          { value: 'browser', label: 'System browser (recommended)' },
+          { value: 'embedded', label: 'Control Center window' }
+        ],
+        tooltip:
+          'Control Center still manages startup, shutdown, logs, and updates. The system browser usually provides smoother interaction for large workflows.'
+      })
+    )
+
+    mockSettings.workspaceOpenMode = 'embedded'
+    const updatedField = buildSettingsSections()
+      .flatMap(
+        (section) => (section.fields as { id?: string; value?: unknown }[] | undefined) ?? []
+      )
+      .find((candidate) => candidate.id === 'workspaceOpenMode')
+    expect(updatedField?.value).toBe('embedded')
+  })
+
   it('offers hardware acceleration under Advanced with a restart notice', () => {
     const sections = buildSettingsSections()
     const generalFields =

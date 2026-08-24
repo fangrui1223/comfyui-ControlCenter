@@ -10,6 +10,8 @@ export type {
   DetailItem,
   DetailField,
   DetailFieldOption,
+  ComfyUIReleaseInfo,
+  ComfyUIDevelopmentRevision,
   VersionStatRow,
   VersionStatsValue,
   ActionDef,

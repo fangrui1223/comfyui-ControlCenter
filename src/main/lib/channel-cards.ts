@@ -22,6 +22,19 @@ export interface ChannelCardData {
   lastChecked: string
   lastCheckedAt?: number
   updateAvailable: boolean
+  /** Release metadata shown directly on ComfyUI update cards. The explicit
+   * flag keeps unrelated channel-card consumers (such as PyTorch) unchanged. */
+  showReleaseInfo?: boolean
+  releaseNotes?: string
+  releaseUrl?: string
+  publishedAt?: string
+  /** Enables the independent stable-tag / development-commit target card. */
+  showVersionPicker?: boolean
+  installationId?: string
+  latestCommit?: string
+  installedBaseTag?: string
+  installedCommitsAhead?: number
+  installedCommit?: string
   actions?: Record<string, unknown>[]
   /** True while the upstream commit is known but `commitsAhead` hasn't been computed yet
    *  (background `enrichCommitsAhead` in flight); drives the "Computing commits ahead…" hint.
@@ -82,6 +95,24 @@ export function buildChannelCards(
             lastChecked: info.checkedAt ? new Date(info.checkedAt).toLocaleString() : '—',
             lastCheckedAt: info.checkedAt ?? undefined,
             updateAvailable: releaseCache.isUpdateAvailable(installation, def.value, info),
+            showReleaseInfo: true,
+            showVersionPicker: true,
+            installationId: installation.id,
+            ...(typeof info.commitSha === 'string' ? { latestCommit: info.commitSha } : {}),
+            ...(typeof cv?.baseTag === 'string' ? { installedBaseTag: cv.baseTag } : {}),
+            ...(typeof cv?.commitsAhead === 'number'
+              ? { installedCommitsAhead: cv.commitsAhead }
+              : {}),
+            ...(typeof cv?.commit === 'string' ? { installedCommit: cv.commit } : {}),
+            ...(typeof info.releaseNotes === 'string' && info.releaseNotes.trim()
+              ? { releaseNotes: info.releaseNotes.trim() }
+              : {}),
+            ...(typeof info.releaseUrl === 'string' && /^https?:\/\//i.test(info.releaseUrl)
+              ? { releaseUrl: info.releaseUrl }
+              : {}),
+            ...(typeof info.publishedAt === 'string' && info.publishedAt
+              ? { publishedAt: info.publishedAt }
+              : {}),
             ...(enriching ? { enriching: true } : {})
           }
         : undefined

@@ -259,6 +259,21 @@ describe('settings unset/default semantics', () => {
     expect(readPersistedSettings()).not.toHaveProperty('autoLaunchOnStartup')
   })
 
+  it('defaults ComfyUI workspaces to the browser and persists only the embedded opt-in', () => {
+    expect(settings.get('workspaceOpenMode')).toBe('browser')
+
+    settings.set('workspaceOpenMode', 'embedded')
+    expect(settings.get('workspaceOpenMode')).toBe('embedded')
+    expect(readPersistedSettings()['workspaceOpenMode']).toBe('embedded')
+
+    settings.set('workspaceOpenMode', 'browser')
+    expect(settings.get('workspaceOpenMode')).toBe('browser')
+    expect(readPersistedSettings()).not.toHaveProperty('workspaceOpenMode')
+
+    fs.writeFileSync(settingsPath, JSON.stringify({ workspaceOpenMode: 'invalid' }), 'utf-8')
+    expect(settings.get('workspaceOpenMode')).toBe('browser')
+  })
+
   it('persists the hardware acceleration opt-out', () => {
     expect(settings.get('hardwareAcceleration')).toBeUndefined()
 
@@ -605,6 +620,16 @@ describe('getTrackedSettingsTelemetryProperties (telemetry policy)', () => {
     settings.set('hardwareAcceleration', false)
     expect(settings.getTrackedSettingsTelemetryProperties(['hardwareAcceleration'])).toEqual({
       setting_hardware_acceleration: false
+    })
+  })
+
+  it('workspaceOpenMode reports its effective browser default and embedded opt-in', () => {
+    expect(settings.getTrackedSettingsTelemetryProperties(['workspaceOpenMode'])).toEqual({
+      setting_workspace_open_mode: 'browser'
+    })
+    settings.set('workspaceOpenMode', 'embedded')
+    expect(settings.getTrackedSettingsTelemetryProperties(['workspaceOpenMode'])).toEqual({
+      setting_workspace_open_mode: 'embedded'
     })
   })
 

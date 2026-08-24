@@ -11,6 +11,11 @@ import {
 } from './lib/paths'
 import { MODEL_FOLDER_TYPES } from './lib/models'
 import { readFileSafe, writeFileSafe } from './lib/safe-file'
+import {
+  COMFY_WORKSPACE_BROWSER,
+  resolveComfyWorkspaceMode,
+  type ComfyWorkspaceMode
+} from '../shared/comfyWorkspaceMode'
 
 export interface KnownSettings {
   cacheDir: string
@@ -44,6 +49,9 @@ export interface KnownSettings {
   /** When true (default), launching another local instance while one is running
    *  or starting asks the user whether to close the existing instances first. */
   warnBeforeRunningMultipleInstances?: boolean
+  /** Where the live ComfyUI workflow is presented. Defaults to the user's
+   *  system browser; the Electron-hosted view remains available as an opt-in. */
+  workspaceOpenMode?: ComfyWorkspaceMode
   /** Uses GPU rendering for Desktop windows. Disabling this takes effect on
    *  the next app launch because Electron must configure it before readiness. */
   hardwareAcceleration?: boolean
@@ -227,6 +235,10 @@ const SETTINGS_SCHEMA = {
   warnBeforeRunningMultipleInstances: {
     nullable: false,
     telemetry: { policy: 'value', toTelemetry: (raw) => raw !== false }
+  },
+  workspaceOpenMode: {
+    nullable: false,
+    telemetry: { policy: 'value', toTelemetry: (raw) => resolveComfyWorkspaceMode(raw) }
   },
   hardwareAcceleration: {
     nullable: false,
@@ -601,6 +613,9 @@ export function get(key: string): unknown {
   if (key === 'autoLaunchOnStartup' && (value === undefined || value === null)) {
     return AUTO_LAUNCH_NONE
   }
+  if (key === 'workspaceOpenMode') {
+    return resolveComfyWorkspaceMode(value)
+  }
   return value
 }
 
@@ -610,7 +625,8 @@ const EMPTY_STRING_MEANS_UNSET: ReadonlySet<string> = new Set<KnownSettingKey>([
 /** Keys whose default value should be persisted as absence — `set(k, default)`
  *  drops the key so the file doesn't accumulate no-op writes. */
 const DEFAULT_VALUE_MEANS_UNSET: ReadonlyMap<string, unknown> = new Map<KnownSettingKey, unknown>([
-  ['autoLaunchOnStartup', AUTO_LAUNCH_NONE]
+  ['autoLaunchOnStartup', AUTO_LAUNCH_NONE],
+  ['workspaceOpenMode', COMFY_WORKSPACE_BROWSER]
 ])
 
 export function set<K extends string>(

@@ -200,6 +200,23 @@ export interface DetailFieldOption {
   data?: Record<string, unknown>
 }
 
+/** Safe, plain-text metadata for a strict ComfyUI stable release tag. */
+export interface ComfyUIReleaseInfo {
+  tag: string
+  name: string
+  notes: string
+  url: string
+  publishedAt?: string
+}
+
+export interface ComfyUIDevelopmentRevision {
+  sha: string
+  shortSha: string
+  title: string
+  url: string
+  committedAt?: string
+}
+
 export interface ComfyArgDef {
   name: string
   flag: string
@@ -1389,6 +1406,14 @@ export interface ElectronApi {
    *  remote is unreachable. Used by the install-wizard version dropdown and
    *  the per-install ChannelPicker. */
   getStableTags(): Promise<string[]>
+  /** Best-effort metadata for one strict stable tag. Invalid tags return null;
+   *  network failures fall back to a canonical release-page record. */
+  getComfyUIRelease(tag: string): Promise<ComfyUIReleaseInfo | null>
+  /** Up to 20 recent commits from ComfyUI master, newest first. */
+  getComfyUIDevelopmentRevisions(
+    installationId?: string,
+    headSha?: string
+  ): Promise<ComfyUIDevelopmentRevision[]>
   getCloudUserTier(): Promise<CloudUserTier>
   /** Whether the free tier is live, for the "5 free runs" trial pill.
    *  Reads cloud's own `free_tier_workflow_submission_enabled` so the pill
@@ -1732,5 +1757,8 @@ export const PICKER_SETTINGS_CHANNELS = {
   getLocaleMessages: 'comfy-titlepopup:picker-settings-get-locale-messages',
   getLocale: 'comfy-titlepopup:picker-settings-get-locale',
   getStableTags: 'comfy-titlepopup:picker-settings-get-stable-tags',
+  getComfyUIRelease: 'comfy-titlepopup:picker-settings-get-comfyui-release',
+  getComfyUIDevelopmentRevisions:
+    'comfy-titlepopup:picker-settings-get-comfyui-development-revisions',
   getUniqueName: 'comfy-titlepopup:picker-settings-get-unique-name'
 } as const

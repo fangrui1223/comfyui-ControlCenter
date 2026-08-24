@@ -2,7 +2,12 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { IpcRendererEvent } from 'electron'
 import type { Category, ViewKind } from '../shared/viewKind'
 import { PICKER_SETTINGS_CHANNELS as CH, POPUP_KIND } from '../types/ipc'
-import type { PopupTheme, TerminalRestore } from '../types/ipc'
+import type {
+  ComfyUIDevelopmentRevision,
+  ComfyUIReleaseInfo,
+  PopupTheme,
+  TerminalRestore
+} from '../types/ipc'
 
 /** Bridge for the title-bar dropdown popup (waffle menu, downloads tray,
  *  instance-picker, global-settings), which share one reused child
@@ -295,6 +300,11 @@ export interface ComfyTitlePopupBridge {
     selections: Record<string, unknown>
   ): Promise<Record<string, unknown>[]>
   pickerSettingsGetStableTags(): Promise<string[]>
+  pickerSettingsGetComfyUIRelease(tag: string): Promise<ComfyUIReleaseInfo | null>
+  pickerSettingsGetComfyUIDevelopmentRevisions(
+    installationId?: string,
+    headSha?: string
+  ): Promise<ComfyUIDevelopmentRevision[]>
   pickerSettingsGetUniqueName(baseName: string): Promise<string>
   pickerSettingsGetInstallations(): Promise<Record<string, unknown>[]>
   pickerSettingsGetInstallationSize(installationId: string): Promise<{ sizeBytes: number }>
@@ -659,6 +669,9 @@ const bridge: ComfyTitlePopupBridge = {
     ipcRenderer.invoke(CH.getFieldOptions, { sourceId, fieldId, selections }),
   pickerSettingsGetInstallations: () => ipcRenderer.invoke(CH.getInstallations),
   pickerSettingsGetStableTags: () => ipcRenderer.invoke(CH.getStableTags),
+  pickerSettingsGetComfyUIRelease: (tag) => ipcRenderer.invoke(CH.getComfyUIRelease, { tag }),
+  pickerSettingsGetComfyUIDevelopmentRevisions: (installationId, headSha) =>
+    ipcRenderer.invoke(CH.getComfyUIDevelopmentRevisions, { installationId, headSha }),
   pickerSettingsGetUniqueName: (baseName) => ipcRenderer.invoke(CH.getUniqueName, { baseName }),
   pickerSettingsGetInstallationSize: (installationId) =>
     ipcRenderer.invoke(CH.getInstallationSize, { installationId }),

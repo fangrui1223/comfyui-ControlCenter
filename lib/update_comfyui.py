@@ -4,7 +4,7 @@ Launcher-owned ComfyUI updater using pygit2.
 Performs git operations only — no pip/uv installs, no self-update logic.
 The launcher handles requirements sync separately.
 
-Usage: python update_comfyui.py <repo_path> [--stable | --tag <vX.Y.Z>]
+Usage: python update_comfyui.py <repo_path> [--stable | --tag <vX.Y.Z> | --commit <SHA>]
 
 Channel selection is mutually exclusive:
   --stable       Check out the highest local vMAJOR.MINOR.PATCH tag.
@@ -12,12 +12,16 @@ Channel selection is mutually exclusive:
                  ref that doesn't look like a stable version tag, so a
                  malformed argument can't drop the user onto an arbitrary
                  commit.
+  --commit <SHA> Check out one full commit selected from the recent master
+                 revision list. The commit must be reachable from the fetched
+                 origin/master history.
 
 Outputs structured markers that the launcher can parse:
   [BACKUP_BRANCH] <name>
   [PRE_UPDATE_HEAD] <sha>
   [POST_UPDATE_HEAD] <sha>
   [CHECKED_OUT_TAG] <tag>
+  [CHECKED_OUT_COMMIT] <sha>
 """
 
 import os
@@ -78,6 +82,7 @@ def system_git_fetch(repo_path, refspecs):
 # the launcher only ever passes user-selected stable release tags, and the
 # update flow assumes the checkout target is a tested release.
 _STABLE_TAG_RE = re.compile(r"^v\d+\.\d+\.\d+$")
+_FULL_COMMIT_RE = re.compile(r"^[0-9a-fA-F]{40}$")
 
 
 def find_latest_stable_tag(repo):
@@ -103,14 +108,30 @@ def _parse_tag_arg(argv):
     return None
 
 
+def _parse_commit_arg(argv):
+    for i, arg in enumerate(argv):
+        if arg == "--commit" and i + 1 < len(argv):
+            return argv[i + 1]
+        if arg.startswith("--commit="):
+            return arg[len("--commit="):]
+    return None
+
+
 def main():
     if len(sys.argv) < 2:
-        print("Usage: python update_comfyui.py <repo_path> [--stable | --tag <vX.Y.Z>]")
+        print("Usage: python update_comfyui.py <repo_path> "
+              "[--stable | --tag <vX.Y.Z> | --commit <SHA>]")
         sys.exit(1)
 
     repo_path = os.path.abspath(sys.argv[1].rstrip("/\\"))
     stable = "--stable" in sys.argv
     explicit_tag = _parse_tag_arg(sys.argv)
+    explicit_commit = _parse_commit_arg(sys.argv)
+
+    selected_modes = int(stable) + int(explicit_tag is not None) + int(explicit_commit is not None)
+    if selected_modes > 1:
+        print("Error: --stable, --tag, and --commit are mutually exclusive")
+        sys.exit(2)
 
     if explicit_tag is not None:
         if not _STABLE_TAG_RE.match(explicit_tag):
@@ -120,6 +141,11 @@ def main():
         if stable:
             print("Error: --tag and --stable are mutually exclusive")
             sys.exit(2)
+
+    if explicit_commit is not None and not _FULL_COMMIT_RE.match(explicit_commit):
+        print("Error: --commit must be a full 40-character hexadecimal SHA "
+              "(got %r)" % explicit_commit)
+        sys.exit(2)
 
     pygit2.option(pygit2.GIT_OPT_SET_OWNER_VALIDATION, 0)
     http_proxy = harden_pygit2_config()
@@ -305,6 +331,28 @@ def main():
         print("Checking out tag: %s" % explicit_tag)
         repo.checkout(ref)
         print("[CHECKED_OUT_TAG] %s" % explicit_tag)
+    elif explicit_commit is not None:
+        try:
+            target = repo.get(pygit2.Oid(hex=explicit_commit))
+        except (ValueError, KeyError, pygit2.GitError):
+            target = None
+        if target is None or not isinstance(target, pygit2.Commit):
+            print("Error: commit %s was not found after fetching origin/master."
+                  % explicit_commit)
+            sys.exit(3)
+        # Ordinary development targets come from the recent master list. Keep
+        # the script-side guard too: even a forged renderer action cannot move
+        # a managed checkout to a commit outside upstream master history.
+        reachable = target.id == remote_id or repo.descendant_of(remote_id, target.id)
+        if not reachable:
+            print("Error: commit %s is not reachable from origin/master."
+                  % explicit_commit)
+            sys.exit(4)
+        print("Checking out development commit: %s" % explicit_commit)
+        repo.set_head(target.id)
+        repo.checkout_tree(target, strategy=pygit2.GIT_CHECKOUT_FORCE)
+        repo.reset(target.id, pygit2.GIT_RESET_HARD)
+        print("[CHECKED_OUT_COMMIT] %s" % explicit_commit)
 
     # Emit post-update HEAD
     post_head = str(repo.head.target)

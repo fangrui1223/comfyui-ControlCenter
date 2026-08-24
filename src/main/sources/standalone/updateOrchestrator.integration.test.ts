@@ -334,6 +334,30 @@ describe.skipIf(!HAS_GIT)('runComfyUIUpdate integration', () => {
     })
   })
 
+  describe('explicit development target', () => {
+    it('passes a selected full master SHA to the updater script', async () => {
+      const targetCommit = repoShas.v2Sha
+      const seenArgs: string[][] = []
+      const successfulHandler = makeSuccessfulUpdateHandler(comfyuiDir, repoShas.v2Sha)
+      spawnState.pythonHandler = (args: string[]) => {
+        seenArgs.push(args)
+        return successfulHandler(args)
+      }
+      spawnState.uvHandler = () => fakeProc({ exitCode: 0 })
+
+      const result = await runComfyUIUpdate(
+        makeBaseOpts(installPath, { channel: 'latest', targetCommit })
+      )
+
+      expect(result.ok).toBe(true)
+      expect(seenArgs).toHaveLength(1)
+      expect(seenArgs[0]).toContain('--commit')
+      expect(seenArgs[0]).toContain(targetCommit)
+      expect(seenArgs[0]).not.toContain('--stable')
+      expect(seenArgs[0]).not.toContain('--tag')
+    })
+  })
+
   describe('marker parsing', () => {
     it('parses markers correctly when split across stdout chunks', async () => {
       spawnState.pythonHandler = (_args: string[]) => {

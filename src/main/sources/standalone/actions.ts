@@ -1182,13 +1182,27 @@ async function handleUpdateComfyUI(
   }
   const channel = targetChannel as 'stable' | 'latest'
 
-  // The IPP version picker carries a strict `vMAJOR.MINOR.PATCH` ref so the
-  // user can upgrade or downgrade to a specific historical release. Bad
-  // shapes (rc / alpha / blank) are dropped here as a defence-in-depth: the
-  // python script also gates this, but a malformed value should never even
-  // reach the spawn.
+  // The version picker carries either a strict stable tag or one full SHA
+  // from the recent master list. Reject bad/mixed shapes before spawning;
+  // the Python updater independently validates reachability as defence in
+  // depth.
   const rawTargetTag = typeof actionData?.targetTag === 'string' ? actionData.targetTag : undefined
-  const targetTag = rawTargetTag && /^v\d+\.\d+\.\d+$/.test(rawTargetTag) ? rawTargetTag : undefined
+  const rawTargetCommit =
+    typeof actionData?.targetCommit === 'string' ? actionData.targetCommit : undefined
+  if (rawTargetTag && rawTargetCommit) {
+    return { ok: false, message: 'Choose either a stable tag or a development commit, not both.' }
+  }
+  if (rawTargetTag && !/^v\d+\.\d+\.\d+$/.test(rawTargetTag)) {
+    return { ok: false, message: 'Invalid stable ComfyUI version target.' }
+  }
+  if (rawTargetCommit && !/^[0-9a-f]{40}$/i.test(rawTargetCommit)) {
+    return { ok: false, message: 'Invalid ComfyUI development commit target.' }
+  }
+  if (rawTargetCommit && channel !== 'latest') {
+    return { ok: false, message: 'Development commit targets require the development channel.' }
+  }
+  const targetTag = rawTargetTag
+  const targetCommit = rawTargetCommit
 
   sendProgress('steps', {
     steps: [
@@ -1206,6 +1220,7 @@ async function handleUpdateComfyUI(
     installation,
     channel,
     ...(targetTag ? { targetTag } : {}),
+    ...(targetCommit ? { targetCommit } : {}),
     update,
     sendProgress,
     sendOutput,

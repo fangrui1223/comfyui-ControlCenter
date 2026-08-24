@@ -70,6 +70,9 @@ export interface UpdateOrchestrationOptions {
    *  user's declared preference — same as a manual checkout on the stable
    *  channel. */
   targetTag?: string
+  /** Explicit full commit selected from the ordinary development revision
+   * list. The updater verifies it is reachable from fetched origin/master. */
+  targetCommit?: string
 }
 
 export interface UpdateOrchestrationResult {
@@ -221,15 +224,16 @@ export async function runComfyUIUpdate(
     installation.adopted === true
       ? (installation.adoptedPythonPath as string)
       : getMasterPythonPath(installPath)
-  // `targetTag` (vMAJOR.MINOR.PATCH) wins over channel: the user explicitly
-  // picked a specific release in the install wizard or IPP, and `--tag` and
-  // `--stable` are mutually exclusive script-side. The orchestration record
-  // still keeps `channel` for downstream bookkeeping (release-cache, snapshots).
+  // Explicit targets win over their channel defaults. The python updater
+  // independently validates the strict tag/full-SHA shape and verifies a
+  // commit target belongs to fetched origin/master.
   const channelArgs = opts.targetTag
     ? ['--tag', opts.targetTag]
-    : channel === 'stable'
-      ? ['--stable']
-      : []
+    : opts.targetCommit
+      ? ['--commit', opts.targetCommit]
+      : channel === 'stable'
+        ? ['--stable']
+        : []
 
   const reqPath = path.join(comfyuiDir, 'requirements.txt')
   let preReqs = ''

@@ -7,7 +7,8 @@ import {
   dialog,
   crashReporter,
   nativeTheme,
-  powerMonitor
+  powerMonitor,
+  shell
 } from 'electron'
 import type { BrowserWindow, WebContentsView } from 'electron'
 import path from 'path'
@@ -101,6 +102,10 @@ import { enrichInstallationsForRenderer } from './lib/ipc/registerInstallationHa
 import { getSnapshotListData } from './lib/snapshots'
 import { update as updateInstallation, resolveAutoLaunchInstall } from './installations'
 import { AUTO_LAUNCH_NONE } from './settings'
+import {
+  resolveComfyWorkspaceUrl,
+  shouldOpenComfyWorkspaceInBrowser
+} from '../shared/comfyWorkspaceMode'
 import { lookupInstallUpdateOverride, recordIpcInvocation } from './lib/e2eOverrides'
 import * as mainTelemetry from './lib/telemetry'
 import {
@@ -580,7 +585,7 @@ function onStop({ installationId }: { installationId?: string } = {}): void {
   }
 }
 
-function onLaunch({
+async function onLaunch({
   port,
   url,
   process: proc,
@@ -592,12 +597,29 @@ function onLaunch({
   process: ChildProcess | null
   installation: InstallationRecord
   mode: string
-}): void {
-  const comfyUrl = url || `http://127.0.0.1:${port}`
+}): Promise<void> {
+  const comfyUrl = resolveComfyWorkspaceUrl(port, url)
   const installationId = installation.id
 
   if (mode === 'console' || mode === 'external') {
     return
+  }
+
+  if (shouldOpenComfyWorkspaceInBrowser(settings.get('workspaceOpenMode'), mode)) {
+    // A chooser may have staked this host for in-place attach before the
+    // process finished booting. Browser mode intentionally leaves that host as
+    // the management surface, so consume the claim instead of letting it leak
+    // into a later embedded launch.
+    consumeAttachClaim(installationId)
+    try {
+      await shell.openExternal(comfyUrl)
+      return
+    } catch (err) {
+      // If the OS cannot open the default browser, fall through to the existing
+      // embedded path so a successful ComfyUI boot never leaves the user with
+      // no workspace.
+      console.error(`Failed to open ComfyUI in the system browser for ${installationId}:`, err)
+    }
   }
 
   // Re-arm the per-launch canvas-rendered dedup so this launch's first
@@ -1146,8 +1168,23 @@ ipcMain.on('comfy-window:new-chooser-window', () => {
   openChooserHostWindow()
 })
 
-ipcMain.handle('focus-comfy-window', (_event, installationId: string) => {
+ipcMain.handle('focus-comfy-window', async (_event, installationId: string) => {
   recordIpcInvocation('focus-comfy-window', { installationId })
+  const session = _runningSessions.get(installationId)
+  if (
+    session &&
+    shouldOpenComfyWorkspaceInBrowser(settings.get('workspaceOpenMode'), session.mode) &&
+    (session.url || session.port > 0)
+  ) {
+    try {
+      await shell.openExternal(resolveComfyWorkspaceUrl(session.port, session.url))
+      return true
+    } catch (err) {
+      // Preserve the legacy focus fallbacks below when the OS browser handoff
+      // fails (for example, a temporarily broken default-browser association).
+      console.error(`Failed to reopen ComfyUI in the system browser for ${installationId}:`, err)
+    }
+  }
   const entry = getEntryByInstallationId(installationId)
   if (entry && !entry.window.isDestroyed()) {
     entry.window.show()

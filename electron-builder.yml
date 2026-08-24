@@ -6,6 +6,7 @@ files:
   - '!.pnpm-store/**/*'
   - '!test-results/**/*'
   - '!playwright-report/**/*'
+  - '!result/**/*'
   - '!.codex-bin/**/*'
   - '!**/.vscode/*'
   - '!src/*'

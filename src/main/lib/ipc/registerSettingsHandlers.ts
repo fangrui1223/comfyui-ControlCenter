@@ -20,6 +20,11 @@ import type { SettingsSection } from '../../../types/ipc'
 import { AUTO_LAUNCH_LAST, AUTO_LAUNCH_NONE } from '../../settings'
 import { listFrEnvironmentProfiles, saveFrEnvironmentProfile } from '../frEnvironmentProfiles'
 import type { SaveFrEnvironmentProfileInput } from '../../../shared/frEnvironmentProfiles'
+import {
+  COMFY_WORKSPACE_BROWSER,
+  COMFY_WORKSPACE_EMBEDDED,
+  resolveComfyWorkspaceMode
+} from '../../../shared/comfyWorkspaceMode'
 
 // Build the App + sources + About settings sections. Shared so the Global
 // Settings popup snapshot can call it without going through IPC.
@@ -76,6 +81,24 @@ export function buildSettingsSections(
             ...(installs ?? []).map((i) => ({ value: i.id, label: i.name }))
           ],
           tooltip: i18n.t('settings.autoLaunchOnStartupDescription')
+        },
+
+        {
+          id: 'workspaceOpenMode',
+          label: i18n.t('settings.workspaceOpenMode'),
+          type: 'select',
+          value: resolveComfyWorkspaceMode(s.workspaceOpenMode),
+          options: [
+            {
+              value: COMFY_WORKSPACE_BROWSER,
+              label: i18n.t('settings.workspaceOpenModeBrowser')
+            },
+            {
+              value: COMFY_WORKSPACE_EMBEDDED,
+              label: i18n.t('settings.workspaceOpenModeEmbedded')
+            }
+          ],
+          tooltip: i18n.t('settings.workspaceOpenModeDescription')
         },
 
         // Close confirmation, off by default. When on, closing a local-install
