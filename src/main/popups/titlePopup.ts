@@ -198,7 +198,7 @@ export interface GlobalSettingsModelsDir {
 }
 
 /** Tabs of the Global Settings popup a caller can deep-link into. */
-export type GlobalSettingsTab = 'general' | 'updates' | 'storage' | 'advanced' | 'logs'
+export type GlobalSettingsTab = 'general' | 'updates' | 'storage' | 'advanced' | 'logs' | 'about'
 
 /** Snapshot pushed to the global-settings popup on open and on every
  *  settings-changed / app-update-state / app-update-progress /
@@ -803,6 +803,7 @@ export function buildTitlePopupMenuItems(entry: ComfyWindowEntry): TitlePopupMen
       label: 'Desktop Settings',
       labelKey: 'fileMenu.globalSettings'
     },
+    { id: 'about', label: 'About', labelKey: 'settings.about' },
     { id: 'feedback', label: 'Send Beta Feedback', labelKey: 'fileMenu.sendFeedback' }
   )
   // Reset Zoom — discoverable recovery path for users who zoom the live
@@ -1989,10 +1990,9 @@ export function activateTitlePopupMenuItem(
     const parentWindow =
       parentEntry && !parentEntry.window.isDestroyed() ? parentEntry.window : null
     void bindings.confirmAndCloseAllHostWindows(parentWindow)
-  } else if (id === 'settings') {
-    // Open the Global Settings popup. The host's active installation
-    // (null on chooser hosts) drives the install-scoped Update Channel
-    // + Copy & Update controls.
+  } else if (id === 'settings' || id === 'about') {
+    // About shares the Global Settings popup and deep-links to the app's
+    // version information, independently of the host's active installation.
     //
     // `openGlobalSettingsForHost` now opens synchronously (it no longer
     // awaits the GitHub-stars fetch), reusing this popup's view via the
@@ -2005,7 +2005,8 @@ export function activateTitlePopupMenuItem(
         parentEntry,
         entry.parentEntryId,
         bindings,
-        parentEntry.titleBarView.webContents
+        parentEntry.titleBarView.webContents,
+        id === 'about' ? 'about' : null
       )
     }
     return
@@ -2990,7 +2991,8 @@ export function registerTitlePopupIpc(bindings: TitlePopupHostBindings): void {
       rawTab === 'updates' ||
       rawTab === 'storage' ||
       rawTab === 'advanced' ||
-      rawTab === 'logs'
+      rawTab === 'logs' ||
+      rawTab === 'about'
         ? rawTab
         : null
     openGlobalSettingsForHost(

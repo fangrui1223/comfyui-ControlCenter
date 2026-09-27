@@ -164,11 +164,11 @@ describe('GlobalSettingsView', () => {
     document.body.innerHTML = ''
   })
 
-  it('renders all five tabs and the general tab is active by default', () => {
+  it('renders all six tabs and the general tab is active by default', () => {
     installMockBridge()
     const wrapper = mountView()
     const tabLabels = wrapper.findAll('.gs-tab').map((t) => t.text())
-    expect(tabLabels).toEqual(['General', 'Updates', 'Storage', 'Advanced', 'Logs'])
+    expect(tabLabels).toEqual(['General', 'Updates', 'Storage', 'Advanced', 'Logs', 'About'])
     expect(wrapper.find('.gs-tab.active').text()).toBe('General')
   })
 

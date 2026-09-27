@@ -74,7 +74,7 @@ interface GlobalSettingsModelsDir {
 }
 
 interface GlobalSettingsSnapshot {
-  initialTab: 'general' | 'updates' | 'storage' | 'advanced' | 'logs' | null
+  initialTab: 'general' | 'updates' | 'storage' | 'advanced' | 'logs' | 'about' | null
   generalFields: Record<string, unknown>[]
   languageFields: Record<string, unknown>[]
   telemetryFields: Record<string, unknown>[]

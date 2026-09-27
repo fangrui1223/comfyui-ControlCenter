@@ -1,7 +1,16 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { FileText, HardDrive, RefreshCcw, Settings2, SlidersHorizontal, X } from 'lucide-vue-next'
+import {
+  FileText,
+  HardDrive,
+  Info,
+  RefreshCcw,
+  Settings2,
+  SlidersHorizontal,
+  X
+} from 'lucide-vue-next'
+import AboutSection from './globalSettings/AboutSection.vue'
 import UpdatesSection from './globalSettings/UpdatesSection.vue'
 import GlobalSettingsMicroSection from './globalSettings/GlobalSettingsMicroSection.vue'
 import GlobalStorageSections from './globalSettings/GlobalStorageSections.vue'
@@ -32,7 +41,7 @@ interface ModelsDir {
 interface Snapshot {
   /** Tab to land on; non-null only on the open push (rebroadcasts carry
    *  null so live data refreshes never retarget the user's tab). */
-  initialTab?: 'general' | 'updates' | 'storage' | 'advanced' | 'logs' | null
+  initialTab?: 'general' | 'updates' | 'storage' | 'advanced' | 'logs' | 'about' | null
   languageFields: Record<string, unknown>[]
   generalFields: Record<string, unknown>[]
   telemetryFields: Record<string, unknown>[]
@@ -89,7 +98,7 @@ const bridge = (window as unknown as { __comfyTitlePopup?: GlobalSettingsBridge 
 
 const LAST_CHECKED_KEY = 'globalSettings.lastCheckedAt'
 
-type TabId = 'general' | 'updates' | 'storage' | 'advanced' | 'logs'
+type TabId = 'general' | 'updates' | 'storage' | 'advanced' | 'logs' | 'about'
 const activeTab = ref<TabId>('general')
 
 // Each open pushes a fresh snapshot object, so watching by identity lets a
@@ -108,7 +117,8 @@ const tabs = computed(() => [
   { id: 'updates' as const, label: props.snapshot.i18n.updates, icon: RefreshCcw },
   { id: 'storage' as const, label: props.snapshot.i18n.storage, icon: HardDrive },
   { id: 'advanced' as const, label: props.snapshot.i18n.advanced, icon: SlidersHorizontal },
-  { id: 'logs' as const, label: props.snapshot.i18n.logs, icon: FileText }
+  { id: 'logs' as const, label: props.snapshot.i18n.logs, icon: FileText },
+  { id: 'about' as const, label: t('settings.about', 'About'), icon: Info }
 ])
 
 const storageSnapshot = computed(() => ({
@@ -395,6 +405,12 @@ onMounted(() => {
             </button>
           </GlobalSettingsMicroSection>
         </template>
+
+        <AboutSection
+          v-else-if="activeTab === 'about'"
+          :version="snapshot.appUpdate.installedVersion"
+          :platform="snapshot.appUpdate.platform"
+        />
       </section>
     </div>
   </div>

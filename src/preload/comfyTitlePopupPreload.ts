@@ -98,7 +98,7 @@ export interface PopupGlobalSettingsModelsDir {
 export interface PopupGlobalSettingsSnapshot {
   /** Tab to land on; non-null only on the open push (rebroadcasts carry
    *  null so live data refreshes never retarget the user's tab). */
-  initialTab: 'general' | 'updates' | 'storage' | 'advanced' | 'logs' | null
+  initialTab: 'general' | 'updates' | 'storage' | 'advanced' | 'logs' | 'about' | null
   languageFields: Record<string, unknown>[]
   generalFields: Record<string, unknown>[]
   telemetryFields: Record<string, unknown>[]
@@ -443,7 +443,8 @@ function isGlobalSettingsSnapshot(value: unknown): value is PopupGlobalSettingsS
     tab !== 'updates' &&
     tab !== 'storage' &&
     tab !== 'advanced' &&
-    tab !== 'logs'
+    tab !== 'logs' &&
+    tab !== 'about'
   ) {
     return false
   }

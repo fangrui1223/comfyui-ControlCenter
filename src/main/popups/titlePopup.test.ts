@@ -187,6 +187,7 @@ describe('buildTitlePopupMenuItems', () => {
       'load-snapshot',
       'sign-in',
       'settings',
+      'about',
       'feedback',
       'exit-window',
       'close-all-windows'
@@ -206,6 +207,7 @@ describe('buildTitlePopupMenuItems', () => {
       'load-snapshot',
       'sign-in',
       'settings',
+      'about',
       'feedback',
       'exit-window',
       'close-all-windows'
@@ -226,6 +228,7 @@ describe('buildTitlePopupMenuItems', () => {
       'track',
       'load-snapshot',
       'settings',
+      'about',
       'feedback',
       'exit-window',
       'close-all-windows'
@@ -242,6 +245,7 @@ describe('buildTitlePopupMenuItems', () => {
       'load-snapshot',
       'sign-in',
       'settings',
+      'about',
       'feedback',
       'reset-zoom',
       'exit-window',

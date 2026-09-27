@@ -25,6 +25,7 @@ export default defineConfig([
       'dist/*',
       'node_modules/*',
       '.pnpm-store/**',
+      'result/**',
       '.claude/**',
       '.worktrees/**',
       'packages/comfyui-desktop-bridge-types/*.d.ts'
