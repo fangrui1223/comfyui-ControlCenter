@@ -27,7 +27,8 @@ import {
   EyeOff,
   Settings2,
   Repeat2,
-  Server
+  Server,
+  Puzzle
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
 import { useComfyUISettings } from '../../composables/useComfyUISettings'
@@ -42,6 +43,7 @@ import StatusFactPanel from '../../views/comfyUISettings/StatusFactPanel.vue'
 import SettingsSectionList from '../../views/comfyUISettings/SettingsSectionList.vue'
 import StoragePane, { type StorageSnapshot } from '../../views/comfyUISettings/StoragePane.vue'
 import ConsoleTerminalPane from '../../views/comfyUISettings/ConsoleTerminalPane.vue'
+import PluginUpdatePane from '../../views/comfyUISettings/PluginUpdatePane.vue'
 import Tooltip from '../ui/Tooltip.vue'
 import OperationErrorDetail from '../ui/OperationErrorDetail.vue'
 import type { PickerTab, SectionTab } from '../../lib/pickerTabs'
@@ -305,6 +307,16 @@ const ALL_TABS: TabDef[] = [
     tooltip: t('tooltips.tabConfig')
   },
   {
+    key: 'plugins',
+    sectionTab: 'plugins',
+    label: t('comfyUISettings.tabPlugins', 'Plugins'),
+    icon: Puzzle,
+    tooltip: t(
+      'tooltips.tabPlugins',
+      'Check and update custom nodes, including manual Git installs.'
+    )
+  },
+  {
     key: 'snapshots',
     sectionTab: 'snapshots',
     label: t('comfyUISettings.tabSnapshots', 'Snapshots'),
@@ -344,12 +356,23 @@ const showConsoleTab = computed(
     isTabAllowedForCategory('console', installation.value.sourceCategory)
 )
 
+const showPluginTab = computed(
+  () =>
+    installation.value != null &&
+    installation.value.sourceId === 'standalone' &&
+    isTabAllowedForCategory('plugins', installation.value.sourceCategory)
+)
+
 const tabs = computed<TabDef[]>(() => {
   // Cloud runs no local process, so the `config` tab carries no real
   // startup args — relabel it "Storage" to match its contents.
   const isCloud = installation.value?.sourceCategory === 'cloud'
   return ALL_TABS.filter((tab) =>
-    tab.key === 'console' ? showConsoleTab.value : sectionsForTab(tab.sectionTab).value.length > 0
+    tab.key === 'console'
+      ? showConsoleTab.value
+      : tab.key === 'plugins'
+        ? showPluginTab.value
+        : sectionsForTab(tab.sectionTab).value.length > 0
   ).map((tab) =>
     isCloud && tab.key === 'config'
       ? { ...tab, label: t('comfyUISettings.tabStorage', 'Storage'), icon: HardDrive }
@@ -893,13 +916,20 @@ defineExpose({
         {{ t('comfyUISettings.emptyInstallLess', 'Open a ComfyUI instance to view its settings.') }}
       </p>
       <p
-        v-else-if="loading && !visibleSections.length && activeTab !== 'console'"
+        v-else-if="
+          loading && !visibleSections.length && activeTab !== 'console' && activeTab !== 'plugins'
+        "
         class="empty"
         :data-testid="TID.pickerSettingsLoading"
       >
         {{ t('common.loading', 'Loading…') }}
       </p>
-      <p v-else-if="error && activeTab !== 'console'" class="empty error">{{ error }}</p>
+      <p
+        v-else-if="error && activeTab !== 'console' && activeTab !== 'plugins'"
+        class="empty error"
+      >
+        {{ error }}
+      </p>
 
       <Transition v-else :name="subPageTransition" mode="out-in">
         <ArgsBuilderPage
@@ -964,6 +994,13 @@ defineExpose({
                 @update-field="updateField"
                 @refresh="reload"
               />
+            </div>
+            <div
+              v-else-if="activeTab === 'plugins' && installation"
+              :key="`tab-plugins-${paneInstallKey}`"
+              class="settings-v2-tab-pane"
+            >
+              <PluginUpdatePane :installation-id="installation.id" @run-action="runAction" />
             </div>
             <div
               v-else-if="activeTab === 'console' && installation"

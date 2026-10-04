@@ -37,14 +37,29 @@ function walkDir(dir: string, base: string = ''): string[] {
 
 export async function getCnrInstallInfo(
   nodeId: string,
-  version?: string
+  version?: string,
+  options?: { refresh?: boolean; timeoutMs?: number }
 ): Promise<CnrInstallInfo | null> {
   try {
     let url = `https://api.comfy.org/nodes/${encodeURIComponent(nodeId)}/install`
     if (version) {
       url += `?version=${encodeURIComponent(version)}`
     }
-    const data = (await fetchJSON(url)) as Record<string, unknown>
+    const request = fetchJSON(url, options)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const data = (await (options?.timeoutMs
+      ? Promise.race([
+          request,
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(
+              () => reject(new Error(`Timed out fetching CNR metadata for ${nodeId}.`)),
+              options.timeoutMs
+            )
+          })
+        ]).finally(() => {
+          if (timer) clearTimeout(timer)
+        })
+      : request)) as Record<string, unknown>
     if (!data || typeof data.downloadUrl !== 'string' || typeof data.version !== 'string') {
       return null
     }

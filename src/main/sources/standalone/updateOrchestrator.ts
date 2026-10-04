@@ -25,6 +25,7 @@ import { formatComfyVersion } from '../../lib/version'
 import type { ComfyVersion } from '../../lib/version'
 import { t } from '../../lib/i18n'
 import { getBundledScriptPath } from '../../lib/bundledScript'
+import { trackModelLinkChild, withProtectedModelLink } from '../../lib/modelLinkGuard'
 import * as settings from '../../settings'
 import * as snapshots from '../../lib/snapshots'
 import { repairMacBinaries } from './macRepair'
@@ -139,12 +140,41 @@ export function spawnCommand(
   })
 }
 
-function spawnUpdateScript(
+async function spawnUpdateScript(
   masterPython: string,
   comfyuiDir: string,
   channelArgs: string[],
   sendOutput: ((text: string) => void) | undefined,
   signal?: AbortSignal
+): Promise<ScriptResult> {
+  try {
+    return await withProtectedModelLink(
+      comfyuiDir,
+      (guarded) =>
+        spawnUpdateScriptUnprotected(
+          masterPython,
+          comfyuiDir,
+          channelArgs,
+          sendOutput,
+          signal,
+          guarded
+        ),
+      sendOutput
+    )
+  } catch (error) {
+    const message = `Model directory protection failed: ${(error as Error).message}`
+    sendOutput?.(`${message}\n`)
+    return { exitCode: 1, exitSignal: null, markers: {}, stdoutBuf: '', stderrBuf: message }
+  }
+}
+
+function spawnUpdateScriptUnprotected(
+  masterPython: string,
+  comfyuiDir: string,
+  channelArgs: string[],
+  sendOutput: ((text: string) => void) | undefined,
+  signal?: AbortSignal,
+  modelsGuarded = false
 ): Promise<ScriptResult> {
   const updateScript = getBundledScriptPath('update_comfyui.py')
   const markers: Record<string, string> = {}
@@ -156,8 +186,10 @@ function spawnUpdateScript(
   const exitCode = new Promise<number>((resolve) => {
     const proc = spawn(masterPython, ['-s', updateScript, comfyuiDir, ...channelArgs], {
       stdio: ['ignore', 'pipe', 'pipe'],
+      env: { ...process.env, FR_MODELS_LINK_GUARDED: modelsGuarded ? '1' : '0' },
       windowsHide: true
     })
+    trackModelLinkChild(comfyuiDir, proc)
     if (signal) {
       const onAbort = (): void => {
         proc.kill()

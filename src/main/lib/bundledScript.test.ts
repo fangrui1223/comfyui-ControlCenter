@@ -25,6 +25,24 @@ describe('bundled script paths', () => {
     expect(fs.existsSync(resolved)).toBe(true)
   })
 
+  it('dev-mode path resolves to lib/manager_operations.py which exists', () => {
+    const resolved = path.resolve(devScriptPath('manager_operations.py'))
+    expect(resolved).toBe(path.join(PROJECT_ROOT, 'lib', 'manager_operations.py'))
+    expect(fs.existsSync(resolved)).toBe(true)
+    expect(fs.readFileSync(resolved, 'utf-8')).toContain('instant_execution=True')
+  })
+
+  it('dev-mode path resolves to the restricted plugin compatibility probe', () => {
+    const resolved = path.resolve(devScriptPath('plugin_compatibility_probe.py'))
+    expect(resolved).toBe(path.join(PROJECT_ROOT, 'lib', 'plugin_compatibility_probe.py'))
+    expect(fs.existsSync(resolved)).toBe(true)
+    const source = fs.readFileSync(resolved, 'utf-8')
+    expect(source).toContain('import-smoke')
+    expect(source).toContain('PromptServer(loop, default_asset_manager())')
+    expect(source).toContain('nodes.load_custom_node(')
+    expect(source).not.toContain('spec.loader.exec_module')
+  })
+
   it('getBundledScriptPath uses the same formula in dev mode', async () => {
     vi.mock('electron', () => ({ app: { isPackaged: false } }))
     const { getBundledScriptPath } = await import('./bundledScript')

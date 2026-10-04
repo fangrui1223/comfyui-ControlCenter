@@ -153,7 +153,8 @@ import {
 } from './host/createHostWindow'
 import { attachInstall, setAttachFactories, type ZoomResetSource } from './host/attach'
 import { resetCanvasRendered } from './lib/canvasEntry'
-import { IN_PLACE_RELAUNCH, REQUIRES_STOPPED } from '../types/ipc'
+import { REQUIRES_STOPPED } from '../types/ipc'
+import { relaunchAfterAction } from './lib/actionRelaunch'
 import { dispatchSessionAction, handleLaunch } from './lib/ipc/sessionActions'
 import { applyAttachHostPreview, clearAttachHostPreview } from './host/attachHostPreview'
 import {
@@ -1961,8 +1962,7 @@ if (app.isPackaged && !app.requestSingleInstanceLock()) {
               { event: stubEvent, installationId, inst, actionData },
               actionId
             )
-            const wantsRelaunch = wasRunning && IN_PLACE_RELAUNCH.has(actionId)
-            if (actionResult.ok && wantsRelaunch) {
+            await relaunchAfterAction(actionId, wasRunning, actionResult, async () => {
               // Re-fetch inst (may have changed version after update).
               const freshInst = (await getInstallation(installationId)) ?? inst
               await handleLaunch({
@@ -1971,7 +1971,7 @@ if (app.isPackaged && !app.requestSingleInstanceLock()) {
                 inst: freshInst,
                 actionData: undefined
               })
-            }
+            })
             // `actionResult.cancelled === true` is the user-cancel
             // signal from handlers that route through
             // `withAbortableSessionAction`. Map it to `MSG_CANCELLED`

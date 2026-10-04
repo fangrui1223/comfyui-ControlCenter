@@ -63,6 +63,209 @@ export interface InstallDistributionResult {
 // Unsubscribe function returned by event listeners
 export type Unsubscribe = () => void
 
+export type PluginUpdateStatus =
+  | 'current'
+  | 'update-available'
+  | 'dirty'
+  | 'ahead'
+  | 'diverged'
+  | 'detached'
+  | 'no-upstream'
+  | 'unreachable'
+  | 'unsupported'
+
+export type PluginUpdateReasonCode =
+  | 'disabled'
+  | 'compiled-dependencies'
+  | 'read-only'
+  | 'dirty'
+  | 'ahead'
+  | 'diverged'
+  | 'detached'
+  | 'no-upstream'
+  | 'remote-unreachable'
+  | 'missing-git-remote'
+  | 'manual-install'
+  | 'file-node'
+  | 'cnr-version-missing'
+  | 'cnr-registry-unavailable'
+  | 'cnr-newer-than-registry'
+
+export interface PluginUpdateItem {
+  id: string
+  dirName: string
+  enabled: boolean
+  sourceType: 'git' | 'cnr' | 'unmanaged' | 'file'
+  repository: string | null
+  branch: string | null
+  upstream: string | null
+  localCommit: string | null
+  remoteCommit: string | null
+  installedVersion: string | null
+  latestVersion: string | null
+  ahead: number | null
+  behind: number | null
+  dirty: boolean
+  status: PluginUpdateStatus
+  updateable: boolean
+  reasonCode: PluginUpdateReasonCode | null
+  reason: string | null
+  hasRequirements: boolean
+  hasInstallScript: boolean
+  hasCompiledDependencies: boolean
+}
+
+export type PluginCompatibilityVerdict =
+  | 'not-required'
+  | 'unchecked'
+  | 'checking'
+  | 'ready'
+  | 'approval-required'
+  | 'review-required'
+  | 'blocked'
+  | 'stale'
+  | 'error'
+
+export interface PluginDependencyDeclaration {
+  name: string
+  normalizedName: string
+  constraint: string | null
+  marker: string | null
+  sourceFile: string
+  raw: string
+  compiled: boolean
+  protected: boolean
+  installedVersion: string | null
+  satisfied: boolean | null
+  active?: boolean
+  extras?: string[]
+  sourceFiles?: string[]
+}
+
+export interface PluginDependencyDifference {
+  name: string
+  kind: 'added' | 'removed' | 'changed'
+  from: string | null
+  to: string | null
+  compiled: boolean
+  protected: boolean
+}
+
+export interface PluginInstallHookDifference {
+  path: string
+  kind: 'added' | 'removed' | 'changed' | 'unchanged'
+}
+
+export interface PluginCompatibilityEnvironment {
+  pythonVersion: string
+  pythonArchitecture: string
+  torchVersion: string | null
+  cudaVersion: string | null
+  numpyVersion: string | null
+  compiledPackages: Record<string, string>
+}
+
+export interface PluginCompatibilityValidation {
+  sourceRevisionVerified: boolean
+  packageStateVerified: boolean
+  protectedStackVerified: boolean
+  pipCheckVerified: boolean
+  importSmokeVerified: boolean
+  managerStateVerified: boolean
+  details: string[]
+}
+
+export interface PluginCompatibilityPlan {
+  installationId: string
+  pluginId: string
+  dirName: string
+  sourceType: PluginUpdateItem['sourceType']
+  currentRef: string | null
+  targetRef: string | null
+  targetSource: string
+  provenance: string
+  generatedAt: string
+  environmentFingerprint: string
+  planDigest: string
+  environment: PluginCompatibilityEnvironment
+  currentDependencies: PluginDependencyDeclaration[]
+  targetDependencies: PluginDependencyDeclaration[]
+  dependencyDifferences: PluginDependencyDifference[]
+  compiledDependencyDifferences: PluginDependencyDifference[]
+  protectedStackDifferences: PluginDependencyDifference[]
+  installHookDifferences: PluginInstallHookDifference[]
+  nativeBinaryFiles: string[]
+  nativeBinaryChanges: string[]
+  preexistingPipCheckIssues: string[]
+  verdict: PluginCompatibilityVerdict
+  blockers: string[]
+  warnings: string[]
+  proposedChanges: PluginDependencyDifference[]
+  executionMode?: 'source-only' | 'wheel-update' | 'isolated-review'
+  packageChanges?: PluginPackageChange[]
+  installedPackages?: Record<string, string>
+  sourceDigest?: string
+  sourceFiles?: Array<{ path: string; sha256: string }>
+  currentSourceFiles?: Array<{ path: string; sha256: string }>
+  dependencyConflicts?: Array<{
+    dependency: string
+    requirements: Array<{ owner: string; constraint: string }>
+  }>
+  resolutionDetails?: string
+  environmentBackupBytes?: number
+  downloadBytes?: number
+  expiresAt?: string
+}
+
+export interface PluginWheelFile {
+  filename: string
+  url: string
+  sha256: string
+  size: number
+  tags: string[]
+}
+
+export interface PluginPackageChange extends PluginDependencyDifference {
+  to: string
+  reason: 'direct' | 'transitive'
+  wheel: PluginWheelFile
+}
+
+export type PluginUpdateRunStatus = 'updated' | 'rolled-back' | 'failed' | 'not-run'
+
+export interface PluginUpdateRunItem {
+  id: string
+  dirName: string
+  sourceType: PluginUpdateItem['sourceType']
+  from: string | null
+  to: string | null
+  status: PluginUpdateRunStatus
+  message: string | null
+  planDigest?: string | null
+  validation?: PluginCompatibilityValidation | null
+}
+
+export interface PluginUpdateRunSummary {
+  completedAt: string
+  ok: boolean
+  items: PluginUpdateRunItem[]
+}
+
+export interface PluginUpdateInventory {
+  installationId: string
+  checkedAt: string
+  mutable: boolean
+  mutationBlockedReason: string | null
+  items: PluginUpdateItem[]
+  lastRun: PluginUpdateRunSummary | null
+  summary: {
+    total: number
+    updateAvailable: number
+    attention: number
+    unsupported: number
+  }
+}
+
 // Theme identifiers
 export type Theme = 'system' | 'dark' | 'light'
 export type ResolvedTheme = Exclude<Theme, 'system'>
@@ -1224,7 +1427,7 @@ export interface ElectronApi {
    *  `comfy://open-settings?tab=comfy`). */
   openInstancePicker(opts?: {
     installationId?: string | null
-    initialTab?: 'config' | 'status' | 'update' | 'snapshots' | 'storage' | 'console'
+    initialTab?: 'config' | 'status' | 'update' | 'plugins' | 'snapshots' | 'storage' | 'console'
     autoAction?: string | null
   }): void
   /** Push the first-use takeover's current step to main so it can
@@ -1331,6 +1534,12 @@ export interface ElectronApi {
   getListActions(installationId: string): Promise<ListAction[]>
   getDetailSections(installationId: string): Promise<DetailSection[]>
   getComfyArgs(installationId: string): Promise<{ args: ComfyArgDef[]; error?: string } | null>
+  getPluginUpdates(installationId: string, refresh?: boolean): Promise<PluginUpdateInventory>
+  getPluginCompatibilityPlan(
+    installationId: string,
+    dirName: string,
+    refresh?: boolean
+  ): Promise<PluginCompatibilityPlan>
   runAction(
     installationId: string,
     actionId: string,
@@ -1706,6 +1915,8 @@ export const REQUIRES_STOPPED = new Set([
   'release-update',
   'migrate-to-standalone',
   'snapshot-restore',
+  'update-plugins',
+  'update-plugin-compatible',
   'update-comfyui',
   'migrate-from',
   'change-pytorch'
@@ -1751,6 +1962,8 @@ export const PICKER_SETTINGS_CHANNELS = {
   importSnapshotsConfirm: 'comfy-titlepopup:picker-settings-import-snapshots-confirm',
   previewSnapshotFile: 'comfy-titlepopup:picker-settings-preview-snapshot-file',
   getComfyArgs: 'comfy-titlepopup:picker-settings-get-comfy-args',
+  getPluginUpdates: 'comfy-titlepopup:picker-settings-get-plugin-updates',
+  getPluginCompatibilityPlan: 'comfy-titlepopup:picker-settings-get-plugin-compatibility-plan',
   browseFolder: 'comfy-titlepopup:picker-settings-browse-folder',
   previewLocalMigration: 'comfy-titlepopup:picker-settings-preview-local-migration',
   relaunchApp: 'comfy-titlepopup:picker-settings-relaunch-app',

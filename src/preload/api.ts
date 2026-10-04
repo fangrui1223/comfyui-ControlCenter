@@ -144,6 +144,10 @@ export function buildElectronApi(): ElectronApi {
     getDetailSections: (installationId) =>
       ipcRenderer.invoke('get-detail-sections', installationId),
     getComfyArgs: (installationId) => ipcRenderer.invoke('get-comfy-args', installationId),
+    getPluginUpdates: (installationId, refresh = false) =>
+      ipcRenderer.invoke('get-plugin-updates', installationId, refresh),
+    getPluginCompatibilityPlan: (installationId, dirName, refresh = false) =>
+      ipcRenderer.invoke('get-plugin-compatibility-plan', installationId, dirName, refresh),
     runAction: (installationId, actionId, actionData?) =>
       ipcRenderer.invoke('run-action', installationId, actionId, actionData),
 

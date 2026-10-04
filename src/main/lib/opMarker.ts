@@ -2,6 +2,7 @@ import crypto from 'crypto'
 import fs from 'fs'
 import path from 'path'
 import { readGitHead, rollbackComfySource } from './git'
+import { recoverModelLink } from './modelLinkGuard'
 import * as telemetry from './telemetry'
 
 // Sentinel written to the install dir while an update/restore is moving ComfyUI's
@@ -137,8 +138,9 @@ export async function recoverInterruptedComfyOp(
   sendOutput?: (text: string) => void,
   onRollback?: () => void
 ): Promise<boolean> {
+  const modelsRecovered = recoverModelLink(path.join(installPath, 'ComfyUI'), sendOutput)
   const marker = readOpMarker(installPath)
-  if (!marker) return false
+  if (!marker) return modelsRecovered
 
   // A completed marker means the op reached consistency; its delete just failed.
   // Never roll back here — just finish clearing it.

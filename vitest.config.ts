@@ -12,6 +12,12 @@ export default defineConfig({
   },
   test: {
     environment: 'happy-dom',
+    // Feedback iframe tests inspect the element and messages without contacting the live site.
+    environmentOptions: {
+      happyDOM: {
+        settings: { disableIframePageLoading: true }
+      }
+    },
     include: ['src/**/*.test.ts'],
     exclude: ['src/**/*.integration.test.ts', 'node_modules'],
     globals: true,

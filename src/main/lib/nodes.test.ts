@@ -92,9 +92,19 @@ describe('scanCustomNodes', () => {
     const dir = path.join(customNodesDir, 'cnr-node')
     await fs.promises.mkdir(dir)
     await fs.promises.writeFile(path.join(dir, '.tracking'), '')
+    await fs.promises.writeFile(
+      path.join(dir, 'pyproject.toml'),
+      '[project]\nname = "registry-node"\nversion = "1.2.3"\n[project.urls]\nRepository = "https://github.com/example/registry-node"\n'
+    )
     const nodes = await scanCustomNodes(comfyuiDir)
     expect(nodes).toHaveLength(1)
-    expect(nodes[0]).toMatchObject({ id: 'cnr-node', type: 'cnr', enabled: true })
+    expect(nodes[0]).toMatchObject({
+      id: 'registry-node',
+      type: 'cnr',
+      version: '1.2.3',
+      url: 'https://github.com/example/registry-node',
+      enabled: true
+    })
   })
 
   it('excludes the core websocket_image_save.py example but keeps other file nodes', async () => {

@@ -5,6 +5,8 @@ import { PICKER_SETTINGS_CHANNELS as CH, POPUP_KIND } from '../types/ipc'
 import type {
   ComfyUIDevelopmentRevision,
   ComfyUIReleaseInfo,
+  PluginCompatibilityPlan,
+  PluginUpdateInventory,
   PopupTheme,
   TerminalRestore
 } from '../types/ipc'
@@ -348,6 +350,15 @@ export interface ComfyTitlePopupBridge {
   pickerSettingsGetComfyArgs(
     installationId: string
   ): Promise<{ args: Record<string, unknown>[]; error?: string } | null>
+  pickerSettingsGetPluginUpdates(
+    installationId: string,
+    refresh?: boolean
+  ): Promise<PluginUpdateInventory>
+  pickerSettingsGetPluginCompatibilityPlan(
+    installationId: string,
+    dirName: string,
+    refresh?: boolean
+  ): Promise<PluginCompatibilityPlan>
   pickerSettingsBrowseFolder(opts?: { defaultPath?: string }): Promise<string | null>
   pickerSettingsCancelOperation(installationId: string): Promise<void>
   pickerSettingsPreviewLocalMigration(installationId: string): Promise<Record<string, unknown>>
@@ -696,6 +707,10 @@ const bridge: ComfyTitlePopupBridge = {
   pickerSettingsPreviewSnapshotFile: () => ipcRenderer.invoke(CH.previewSnapshotFile),
   pickerSettingsGetComfyArgs: (installationId) =>
     ipcRenderer.invoke(CH.getComfyArgs, { installationId }),
+  pickerSettingsGetPluginUpdates: (installationId, refresh = false) =>
+    ipcRenderer.invoke(CH.getPluginUpdates, { installationId, refresh }),
+  pickerSettingsGetPluginCompatibilityPlan: (installationId, dirName, refresh = false) =>
+    ipcRenderer.invoke(CH.getPluginCompatibilityPlan, { installationId, dirName, refresh }),
   pickerSettingsBrowseFolder: (opts) =>
     ipcRenderer.invoke(CH.browseFolder, { defaultPath: opts?.defaultPath }),
   pickerSettingsCancelOperation: (installationId) =>

@@ -4,6 +4,13 @@ import path from 'path'
 import { app } from 'electron'
 import { killProcTree } from './process'
 import { getBundledScriptPath } from './bundledScript'
+import {
+  isModelLinkProtected,
+  recoverModelLink,
+  trackModelLinkChild,
+  withProtectedModelLink
+} from './modelLinkGuard'
+import { extract } from './extract'
 import { removeQuarantine, codesignBinaries } from '../sources/standalone/macRepair'
 import * as telemetry from './telemetry'
 import { buildErrorFields } from '../../shared/errorEvent'
@@ -350,9 +357,11 @@ function makeRunPygit2(
       const stderrChunks: string[] = []
       const proc = spawn(python, ['-s', '-u', script, ...args], {
         stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, FR_MODELS_LINK_GUARDED: isModelLinkProtected(args[1]) ? '1' : '0' },
         windowsHide: true,
         detached: process.platform !== 'win32'
       })
+      trackModelLinkChild(args[1], proc)
       let settled = false
       let timedOut = false
       const finish = (result: ProcessResult): void => {
@@ -435,6 +444,7 @@ function spawnStreamed(
       windowsHide: true,
       detached: process.platform !== 'win32'
     })
+    trackModelLinkChild(cwd, proc)
     const onAbort = (): void => {
       killProcTree(proc)
     }
@@ -527,6 +537,187 @@ export function readGitRemoteUrl(repoPath: string): string | null {
     return redactUrl(match[1]!.trim())
   } catch {
     return null
+  }
+}
+
+export interface GitUpdateInspection {
+  branch: string | null
+  detached: boolean
+  upstream: string | null
+  localCommit: string | null
+  remoteCommit: string | null
+  ahead: number | null
+  behind: number | null
+  dirty: boolean
+  fetchError: string | null
+}
+
+function runGitCapture(
+  repoPath: string,
+  args: string[],
+  timeout = 10_000
+): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  return new Promise((resolve) => {
+    execFile(
+      'git',
+      args,
+      { cwd: repoPath, encoding: 'utf-8', windowsHide: true, timeout },
+      (error, stdout, stderr) => {
+        resolve({
+          exitCode: error
+            ? typeof (error as ExecFileException).code === 'number'
+              ? ((error as ExecFileException).code as number)
+              : 1
+            : 0,
+          stdout: (stdout ?? '').toString().trim(),
+          stderr: (stderr ?? '').toString().trim()
+        })
+      }
+    )
+  })
+}
+
+/**
+ * Inspect a plugin repository without changing its worktree. The bundled
+ * pygit2 helper is preferred so Desktop installs do not depend on a global
+ * Git binary; system Git is the fallback.
+ */
+export async function inspectGitUpdate(
+  repoPath: string,
+  fetchRemote = false
+): Promise<GitUpdateInspection> {
+  if (isPygit2Configured()) {
+    const result = await runPygit2(
+      ['inspect-update', repoPath, ...(fetchRemote ? ['fetch'] : [])],
+      fetchRemote ? 30_000 : 10_000
+    )
+    if (result.exitCode !== 0) {
+      throw new Error(result.stderr.trim() || 'Unable to inspect Git repository')
+    }
+    return JSON.parse(result.stdout) as GitUpdateInspection
+  }
+
+  let fetchError: string | null = null
+  if (fetchRemote) {
+    const fetched = await runGitCapture(repoPath, ['fetch', '--prune', 'origin'], 30_000)
+    if (fetched.exitCode !== 0) fetchError = fetched.stderr || 'Git fetch failed'
+  }
+
+  const [head, branchResult, upstreamResult, dirtyResult] = await Promise.all([
+    runGitCapture(repoPath, ['rev-parse', 'HEAD']),
+    runGitCapture(repoPath, ['symbolic-ref', '--short', '-q', 'HEAD']),
+    runGitCapture(repoPath, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}']),
+    runGitCapture(repoPath, ['status', '--porcelain', '--untracked-files=normal'])
+  ])
+  if (head.exitCode !== 0) throw new Error(head.stderr || 'Unable to resolve Git HEAD')
+
+  const detached = branchResult.exitCode !== 0 || !branchResult.stdout
+  const branch = detached ? null : branchResult.stdout
+  let upstream = upstreamResult.exitCode === 0 ? upstreamResult.stdout : null
+  if (!upstream && branch) {
+    const fallback = await runGitCapture(repoPath, [
+      'show-ref',
+      '--verify',
+      '--quiet',
+      `refs/remotes/origin/${branch}`
+    ])
+    if (fallback.exitCode === 0) upstream = `origin/${branch}`
+  }
+
+  let remoteCommit: string | null = null
+  let ahead: number | null = null
+  let behind: number | null = null
+  if (upstream) {
+    const [remote, counts] = await Promise.all([
+      runGitCapture(repoPath, ['rev-parse', upstream]),
+      runGitCapture(repoPath, ['rev-list', '--left-right', '--count', `HEAD...${upstream}`])
+    ])
+    if (remote.exitCode === 0) remoteCommit = remote.stdout
+    if (counts.exitCode === 0) {
+      const [aheadText, behindText] = counts.stdout.split(/\s+/)
+      ahead = Number.parseInt(aheadText ?? '', 10)
+      behind = Number.parseInt(behindText ?? '', 10)
+      if (!Number.isFinite(ahead)) ahead = null
+      if (!Number.isFinite(behind)) behind = null
+    }
+  }
+
+  return {
+    branch,
+    detached,
+    upstream,
+    localCommit: head.stdout,
+    remoteCommit,
+    ahead,
+    behind,
+    dirty: dirtyResult.exitCode === 0 && dirtyResult.stdout.length > 0,
+    fetchError
+  }
+}
+
+/** Restore a clean repository to an exact pre-transaction commit. */
+export async function gitResetHard(
+  repoPath: string,
+  commit: string,
+  sendOutput: (text: string) => void,
+  signal?: AbortSignal
+): Promise<ProcessResult> {
+  return withProtectedModelLink(
+    repoPath,
+    () => gitResetHardUnprotected(repoPath, commit, sendOutput, signal),
+    sendOutput
+  )
+}
+
+async function gitResetHardUnprotected(
+  repoPath: string,
+  commit: string,
+  sendOutput: (text: string) => void,
+  signal?: AbortSignal
+): Promise<ProcessResult> {
+  if (isPygit2Configured()) {
+    return makeRunPygit2(sendOutput, signal)(['reset-hard', repoPath, commit])
+  }
+  return spawnStreamed('git', ['reset', '--hard', commit], sendOutput, {
+    cwd: repoPath,
+    signal
+  })
+}
+
+/** Export a revision into an isolated directory without touching the worktree. */
+export async function gitExportTree(
+  repoPath: string,
+  ref: string,
+  destination: string
+): Promise<void> {
+  await fs.promises.mkdir(destination, { recursive: true })
+  const existing = await fs.promises.readdir(destination)
+  if (existing.length > 0) throw new Error('Git export destination must be empty.')
+
+  if (isPygit2Configured()) {
+    const result = await runPygit2(['export-tree', repoPath, ref, destination], 120_000)
+    if (result.exitCode !== 0) {
+      throw new Error(result.stderr.trim() || 'Unable to export the target Git tree.')
+    }
+    return
+  }
+
+  const archivePath = path.join(
+    path.dirname(destination),
+    `plugin-target-${process.pid}-${Date.now()}.zip`
+  )
+  try {
+    const result = await runGitCapture(
+      repoPath,
+      ['archive', '--format=zip', `--output=${archivePath}`, ref],
+      120_000
+    )
+    if (result.exitCode !== 0) {
+      throw new Error(result.stderr || 'Unable to export the target Git tree.')
+    }
+    await extract(archivePath, destination)
+  } finally {
+    await fs.promises.rm(archivePath, { force: true }).catch(() => {})
   }
 }
 
@@ -1266,6 +1457,19 @@ export function gitCheckoutCommit(
   sendOutput: (text: string) => void,
   signal?: AbortSignal
 ): Promise<ProcessResult> {
+  return withProtectedModelLink(
+    repoPath,
+    () => gitCheckoutCommitUnprotected(repoPath, commit, sendOutput, signal),
+    sendOutput
+  )
+}
+
+function gitCheckoutCommitUnprotected(
+  repoPath: string,
+  commit: string,
+  sendOutput: (text: string) => void,
+  signal?: AbortSignal
+): Promise<ProcessResult> {
   if (signal?.aborted) return Promise.resolve({ exitCode: 1, stderr: '', stdout: '' })
   const systemGitCheckout = (): Promise<ProcessResult> => {
     const runGit = makeRunGit(repoPath, sendOutput, signal)
@@ -1307,6 +1511,7 @@ export async function rollbackComfySource(
   targetHead: string,
   sendOutput?: (text: string) => void
 ): Promise<boolean> {
+  recoverModelLink(comfyuiDir, sendOutput)
   if (readGitHead(comfyuiDir) === targetHead) return true
   sendOutput?.(`\nRolling back ComfyUI source to ${targetHead.slice(0, 7)}…\n`)
   const result = await gitCheckoutCommit(
@@ -1331,6 +1536,19 @@ export async function rollbackComfySource(
  * (mirroring update_comfyui.py behaviour).
  */
 export function gitFetchAndCheckout(
+  repoPath: string,
+  commit: string,
+  sendOutput: (text: string) => void,
+  signal?: AbortSignal
+): Promise<ProcessResult> {
+  return withProtectedModelLink(
+    repoPath,
+    () => gitFetchAndCheckoutUnprotected(repoPath, commit, sendOutput, signal),
+    sendOutput
+  )
+}
+
+function gitFetchAndCheckoutUnprotected(
   repoPath: string,
   commit: string,
   sendOutput: (text: string) => void,

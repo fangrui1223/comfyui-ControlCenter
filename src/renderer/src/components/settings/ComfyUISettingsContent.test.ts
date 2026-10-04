@@ -45,7 +45,7 @@ const messages = {
         "An interactive shell running in this installation's folder. Works whether ComfyUI is running or stopped."
     },
     instancePicker: {
-      open: 'Start',
+      open: 'Launch ComfyUI',
       restart: 'Restart',
       switch: 'Switch',
       restartToApply: 'Restart to apply changes',
@@ -138,6 +138,13 @@ vi.mock('../../views/comfyUISettings/ConsoleTerminalPane.vue', () => ({
     name: 'ConsoleTerminalPane',
     props: ['installationId'],
     template: '<div data-testid="console-terminal-pane-stub" />'
+  }
+}))
+vi.mock('../../views/comfyUISettings/PluginUpdatePane.vue', () => ({
+  default: {
+    name: 'PluginUpdatePane',
+    props: ['installationId'],
+    template: '<div data-testid="plugin-update-pane-stub" />'
   }
 }))
 vi.mock('../../views/comfyUISettings/ArgsBuilderPage.vue', () => ({
@@ -553,6 +560,7 @@ describe('ComfyUISettingsContent', () => {
     const TAB_LABELS = new Set([
       'Update',
       'Startup Args',
+      'Plugins',
       'Snapshots',
       'Storage',
       'Terminal',
@@ -634,14 +642,14 @@ describe('ComfyUISettingsContent', () => {
       return calls?.[0]?.[0] as { window: string; verb: string } | undefined
     }
 
-    it('labels "Start" and emits a same-window switch decision when not running', async () => {
+    it('labels "Launch ComfyUI" and emits a same-window switch decision when not running', async () => {
       // Dashboard host (no active install) selecting a stopped local install.
       const w = await mountContent({
         currentView: 'dashboard',
         currentCategory: null,
         activeInstallationId: null
       })
-      expect(w.find('.settings-v2-relaunch').text()).toBe('Start')
+      expect(w.find('.settings-v2-relaunch').text()).toBe('Launch ComfyUI')
       await w.find('.settings-v2-relaunch').trigger('click')
       expect(emittedDecision(w)).toMatchObject({ window: 'same', verb: 'switch' })
     })

@@ -529,6 +529,73 @@ describe('useComfyUISettings.runAction — stop-warning augment + self-stopping 
     scope.stop()
   })
 
+  it.each([
+    ['update-plugins', true],
+    ['update-plugins', false],
+    ['update-plugin-compatible', true],
+    ['update-plugin-compatible', false]
+  ])(
+    '%s stops a running instance and stays stopped after result ok=%s, including retry',
+    async (actionId, ok) => {
+      const api = installMockApi({
+        stopComfyUI: vi.fn().mockImplementation(async (id: string) => {
+          useSessionStore().runningInstances.delete(id)
+        }),
+        runAction: vi.fn().mockResolvedValue({ ok })
+      })
+      markRunning('a', 'A')
+      dialogsSpies.confirm.mockResolvedValue('primary')
+      const onShowProgress = vi.fn()
+      const { composable, scope } = mountComposable(makeInstall('a', 'A'), onShowProgress)
+      try {
+        await composable.runAction({
+          id: actionId,
+          label: 'Update plugins',
+          showProgress: true,
+          data: { pluginIds: ['node'] },
+          confirm: { message: 'Update?' }
+        } as ActionDef)
+        const opts = onShowProgress.mock.calls[0]?.[0] as ShowProgressOpts
+        expect(opts.triggersInstanceStart).toBe(false)
+        await opts.apiCall()
+        expect(api.stopComfyUI).toHaveBeenCalledOnce()
+        expect(useSessionStore().isRunning('a')).toBe(false)
+        // The progress Retry button reuses this apiCall.
+        await opts.apiCall()
+        expect(api.runAction).toHaveBeenCalledTimes(2)
+        for (const call of vi.mocked(api.runAction).mock.calls) {
+          expect(call).toEqual(['a', actionId, { pluginIds: ['node'] }])
+        }
+      } finally {
+        scope.stop()
+      }
+    }
+  )
+
+  it.each(['update-plugins', 'update-plugin-compatible'])(
+    '%s leaves an already stopped instance stopped',
+    async (actionId) => {
+      const api = installMockApi({ runAction: vi.fn().mockResolvedValue({ ok: true }) })
+      dialogsSpies.confirm.mockResolvedValue('primary')
+      const onShowProgress = vi.fn()
+      const { composable, scope } = mountComposable(makeInstall('a', 'A'), onShowProgress)
+      try {
+        await composable.runAction({
+          id: actionId,
+          label: 'Update plugins',
+          showProgress: true
+        } as ActionDef)
+        const opts = onShowProgress.mock.calls[0]?.[0] as ShowProgressOpts
+        expect(opts.triggersInstanceStart).toBe(false)
+        await opts.apiCall()
+        expect(api.stopComfyUI).not.toHaveBeenCalled()
+        expect(api.runAction).toHaveBeenCalledExactlyOnceWith('a', actionId, undefined)
+      } finally {
+        scope.stop()
+      }
+    }
+  )
+
   it('copy-pytorch warns in its prompt, stops the running install, and runs without an auto-relaunch', async () => {
     // Like copy-update: the op targets the new copy, so the source install
     // is stopped for a consistent venv copy and intentionally left stopped.

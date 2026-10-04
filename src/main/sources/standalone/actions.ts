@@ -53,6 +53,9 @@ import type { PreparedStack, TorchStackTools } from './torchStackTransaction'
 import { releaseInstallTerminalForFsOp } from '../../lib/popoutWindows'
 import type { InstallationRecord } from '../../installations'
 import type { ActionResult, ActionTools } from '../../types/sources'
+import { handleCompatiblePluginUpdate, handlePluginUpdate } from './pluginUpdateAction'
+import { getPluginMutationPolicy } from '../../lib/pluginUpdates'
+import { recoverInterruptedPluginUpdate } from '../../lib/pluginEnvironmentBackup'
 
 /** Actions that mutate the venv (adopted installs included — their legacy
  *  venv goes through the same journaled torch transaction). Each must first
@@ -60,10 +63,13 @@ import type { ActionResult, ActionTools } from '../../types/sources'
  *  that recovery is about to roll back (or failing to roll back and mutating
  *  debris) would corrupt it. */
 const VENV_MUTATING_ACTIONS = new Set([
+  'snapshot-save',
   'snapshot-restore',
   'change-pytorch',
   'update-comfyui',
-  'migrate-from'
+  'migrate-from',
+  'update-plugins',
+  'update-plugin-compatible'
 ])
 
 /** Download + stage a torch bundle, then re-check disk (`staged: true` — the
@@ -111,8 +117,14 @@ export async function handleAction(
   actionData: Record<string, unknown> | undefined,
   { update, sendProgress, sendOutput, signal }: ActionTools
 ): Promise<ActionResult> {
-  if (VENV_MUTATING_ACTIONS.has(actionId)) {
+  const pluginMutationAllowed =
+    !['update-plugins', 'update-plugin-compatible'].includes(actionId) ||
+    getPluginMutationPolicy(installation).mutable
+  if (VENV_MUTATING_ACTIONS.has(actionId) && pluginMutationAllowed) {
     try {
+      if (await recoverInterruptedPluginUpdate(installation, sendOutput)) {
+        return { ok: false, message: t('pluginUpdates.compatibility.recoveredStopped') }
+      }
       await recoverTorchStackTransaction(installation)
     } catch (err) {
       // Fail closed: the venv is in an unknown state and must not be mutated.
@@ -131,6 +143,24 @@ export async function handleAction(
     const snapshotCount = await snapshots.getSnapshotCount(installation.installPath)
     await update({ lastSnapshot: filename, snapshotCount })
     return { ok: true, navigate: 'detail' }
+  }
+
+  if (actionId === 'update-plugins') {
+    return handlePluginUpdate(installation, actionData, {
+      update,
+      sendProgress,
+      sendOutput,
+      signal
+    })
+  }
+
+  if (actionId === 'update-plugin-compatible') {
+    return handleCompatiblePluginUpdate(installation, actionData, {
+      update,
+      sendProgress,
+      sendOutput,
+      signal
+    })
   }
 
   if (actionId === 'snapshot-restore') {

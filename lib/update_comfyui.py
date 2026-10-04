@@ -196,7 +196,19 @@ def main():
     try:
         repo.branches.local.create(backup_name, repo.head.peel())
         print("[BACKUP_BRANCH] %s" % backup_name)
+        # The launcher temporarily parks a shared models/ directory link before
+        # Git checkout. Its absent tracked files are not user deletions and must
+        # not be committed as such into the source backup branch.
+        guarded_models = os.environ.get("FR_MODELS_LINK_GUARDED") == "1"
+        model_entries = [entry for entry in repo.index
+                         if entry.path == "models" or entry.path.startswith("models/")]
         repo.index.add_all()
+        if guarded_models:
+            for entry in list(repo.index):
+                if entry.path == "models" or entry.path.startswith("models/"):
+                    repo.index.remove(entry.path)
+            for entry in model_entries:
+                repo.index.add(entry)
         repo.index.write()
         if repo.index.diff_to_tree(repo.head.peel().tree):
             tree = repo.index.write_tree()

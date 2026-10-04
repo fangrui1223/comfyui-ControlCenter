@@ -22,6 +22,10 @@ files:
 extraResources:
   - from: lib
     to: lib
+    filter:
+      - '**/*'
+      - '!**/__pycache__/**'
+      - '!**/*.pyc'
   - from: resources/THIRD_PARTY_NOTICES.generated.json
     to: THIRD_PARTY_NOTICES.generated.json
 asarUnpack:

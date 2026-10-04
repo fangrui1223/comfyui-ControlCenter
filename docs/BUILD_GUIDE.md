@@ -33,7 +33,14 @@ corepack pnpm run bootstrap:fetch -- --platform win-x64
 
 ## 3. 日常质量检查
 
+插件依赖解析测试需要完整 Python 标准库和 `packaging`；真实 Git 集成测试还需要
+`pygit2`。使用独立测试解释器，并通过 `FR_TEST_PYTHON` 指定其绝对路径；通过
+`FR_TEST_UV` 指定 uv 可执行文件。测试仅操作合成目录，不安装或更新真实 ComfyUI。
+发行包中的裁剪版 bootstrap Python 不适合执行这些 unittest 用例。
+
 ```powershell
+$env:FR_TEST_PYTHON = '<完整测试 Python 的绝对路径>'
+$env:FR_TEST_UV = '<uv.exe 的绝对路径>'
 corepack pnpm run typecheck
 corepack pnpm run lint
 corepack pnpm run test

@@ -46,6 +46,8 @@ describe('humanizeOpStatus', () => {
 
 describe('operationInflightLabel', () => {
   it.each([
+    [{ actionId: 'update-plugins' }, 'Updating plugins'],
+    [{ actionId: 'update-plugin-compatible' }, 'Updating plugins'],
     [{ actionId: 'update-comfyui', actionData: {} }, 'Updating…'],
     [{ actionId: 'update-comfyui', actionData: { isDowngrade: true } }, 'Downgrading…'],
     [{ actionId: 'release-update' }, 'Updating…'],
@@ -74,6 +76,14 @@ describe('operationInflightLabel', () => {
 
 describe('operationSuccessLabel', () => {
   it.each([
+    [
+      { actionId: 'update-plugins' },
+      'Plugin update complete. ComfyUI remains stopped until you start it manually.'
+    ],
+    [
+      { actionId: 'update-plugin-compatible' },
+      'Plugin update complete. ComfyUI remains stopped until you start it manually.'
+    ],
     [{ actionId: 'update-comfyui', actionData: {} }, 'Update complete'],
     [{ actionId: 'update-comfyui', actionData: { isDowngrade: true } }, 'Downgrade complete'],
     [{ actionId: 'release-update' }, 'Update complete'],

@@ -24,6 +24,9 @@ Subcommands:
   fetch-and-checkout <repo_path> <commit>
   ls-remote-tags     <url>
   ls-remote-ref      <url> <ref>
+  inspect-update     <repo_path> [fetch]
+  reset-hard         <repo_path> <commit>
+  export-tree        <repo_path> <ref> <destination>
 """
 
 import os
@@ -681,6 +684,22 @@ def cmd_checkout(repo_path, commit):
     """
     repo = open_repo(repo_path)
 
+    # The launcher parked an external models/ link and gave Git a fresh local
+    # directory. Materialize ONLY its tracked files before SAFE checkout: libgit2
+    # otherwise treats their temporary absence as user deletions and refuses a
+    # snapshot rollback. Never relax conflict checks for other source files.
+    if os.environ.get("FR_MODELS_LINK_GUARDED") == "1":
+        models_path = os.path.join(repo_path, "models")
+        model_stat = os.lstat(models_path)
+        if (os.path.islink(models_path)
+                or getattr(model_stat, "st_file_attributes", 0) & 0x400
+                or not os.path.isdir(models_path)):
+            raise RuntimeError("Guarded models directory is not a physical directory")
+        model_paths = [entry.path for entry in repo.index
+                       if entry.path.startswith("models/")]
+        if model_paths:
+            repo.checkout_head(strategy=pygit2.GIT_CHECKOUT_FORCE, paths=model_paths)
+
     # Try direct checkout first (works for full clones where the commit
     # is already local).
     existing = _try_checkout_existing(repo, commit, pygit2.GIT_CHECKOUT_SAFE)
@@ -842,6 +861,123 @@ def cmd_ls_remote_ref(url, ref):
         sys.exit(1)
 
 
+def cmd_inspect_update(repo_path, should_fetch=False):
+    """Print one JSON object describing a worktree and its upstream.
+
+    Fetch failures are data, not process failures: callers can still display
+    the local branch/dirty state while marking the remote comparison as
+    unreachable. The command never checks out, merges, resets, or writes the
+    worktree.
+    """
+    repo = open_repo(repo_path)
+    fetch_error = None
+    origin = None
+    try:
+        origin = get_origin(repo)
+    except SystemExit:
+        # Re-express the missing-origin condition in the structured result.
+        origin = None
+
+    if should_fetch and origin is not None:
+        try:
+            origin.fetch(proxy=HTTP_PROXY)
+        except Exception as e:
+            fetch_error = str(e)
+
+    detached = bool(repo.head_is_detached)
+    branch_name = None
+    upstream_name = None
+    local_oid = repo.head.target
+    remote_oid = None
+
+    if not detached and not repo.head_is_unborn:
+        branch_name = repo.head.shorthand
+        branch = repo.lookup_branch(branch_name)
+        upstream = branch.upstream if branch is not None else None
+        if upstream is not None:
+            upstream_name = upstream.name
+            remote_oid = upstream.target
+        else:
+            fallback_ref = "refs/remotes/origin/%s" % branch_name
+            try:
+                remote_ref = repo.lookup_reference(fallback_ref)
+                upstream_name = fallback_ref
+                remote_oid = remote_ref.target
+            except (KeyError, ValueError):
+                pass
+
+    ahead = None
+    behind = None
+    if local_oid is not None and remote_oid is not None:
+        ahead, behind = repo.ahead_behind(local_oid, remote_oid)
+
+    print(json.dumps({
+        "branch": branch_name,
+        "detached": detached,
+        "upstream": upstream_name,
+        "localCommit": str(local_oid) if local_oid is not None else None,
+        "remoteCommit": str(remote_oid) if remote_oid is not None else None,
+        "ahead": ahead,
+        "behind": behind,
+        "dirty": bool(repo.status()),
+        "fetchError": fetch_error,
+    }, ensure_ascii=False))
+
+
+def cmd_reset_hard(repo_path, commit):
+    """Reset the current branch/worktree to a known transaction checkpoint."""
+    repo = open_repo(repo_path)
+    oid = resolve_ref(repo, commit)
+    repo.reset(oid, pygit2.GIT_RESET_HARD)
+    print("Reset to %s" % str(oid), file=sys.stderr)
+
+
+def cmd_export_tree(repo_path, ref, destination):
+    """Export a commit tree without changing the repository worktree.
+
+    The destination must be empty. Symlink blobs are materialized as ordinary
+    files so a compatibility inspection can never create links outside its
+    temporary staging directory.
+    """
+    repo = open_repo(repo_path)
+    oid = resolve_ref(repo, ref)
+    commit = repo.get(oid).peel(pygit2.Commit)
+    destination = os.path.abspath(destination)
+    os.makedirs(destination, exist_ok=True)
+    if os.listdir(destination):
+        raise RuntimeError("export destination must be empty")
+
+    file_count = 0
+    byte_count = 0
+    max_files = 50000
+    max_bytes = 1024 * 1024 * 1024
+
+    def export_dir(tree, relative=""):
+        nonlocal file_count, byte_count
+        for entry in tree:
+            if entry.name in (".", "..") or "/" in entry.name or "\\" in entry.name:
+                raise RuntimeError("unsafe path in Git tree")
+            child_relative = os.path.join(relative, entry.name)
+            target = os.path.abspath(os.path.join(destination, child_relative))
+            if os.path.commonpath((destination, target)) != destination:
+                raise RuntimeError("Git tree path escaped staging directory")
+            obj = repo.get(entry.id)
+            if isinstance(obj, pygit2.Tree):
+                os.makedirs(target, exist_ok=True)
+                export_dir(obj, child_relative)
+            elif isinstance(obj, pygit2.Blob):
+                file_count += 1
+                byte_count += obj.size
+                if file_count > max_files or byte_count > max_bytes:
+                    raise RuntimeError("Git tree exceeds compatibility staging limits")
+                os.makedirs(os.path.dirname(target), exist_ok=True)
+                with open(target, "wb") as output:
+                    output.write(obj.data)
+
+    export_dir(commit.tree)
+    print(json.dumps({"files": file_count, "bytes": byte_count}))
+
+
 # ---------------------------------------------------------------------------
 # Main dispatch
 # ---------------------------------------------------------------------------
@@ -866,6 +1002,9 @@ Subcommands:
   fetch-and-checkout <repo_path> <commit>
   ls-remote-tags     <url>
   ls-remote-ref      <url> <ref>
+  inspect-update     <repo_path> [fetch]
+  reset-hard         <repo_path> <commit>
+  export-tree        <repo_path> <ref> <destination>
 """
 
 if __name__ == "__main__":
@@ -978,6 +1117,24 @@ if __name__ == "__main__":
                 print("Usage: git_operations.py ls-remote-ref <url> <ref>", file=sys.stderr)
                 sys.exit(1)
             cmd_ls_remote_ref(sys.argv[2], sys.argv[3])
+
+        elif subcmd == "inspect-update":
+            if len(sys.argv) < 3:
+                print("Usage: git_operations.py inspect-update <repo_path> [fetch]", file=sys.stderr)
+                sys.exit(1)
+            cmd_inspect_update(sys.argv[2], len(sys.argv) > 3 and sys.argv[3] == "fetch")
+
+        elif subcmd == "reset-hard":
+            if len(sys.argv) < 4:
+                print("Usage: git_operations.py reset-hard <repo_path> <commit>", file=sys.stderr)
+                sys.exit(1)
+            cmd_reset_hard(sys.argv[2], sys.argv[3])
+
+        elif subcmd == "export-tree":
+            if len(sys.argv) < 5:
+                print("Usage: git_operations.py export-tree <repo_path> <ref> <destination>", file=sys.stderr)
+                sys.exit(1)
+            cmd_export_tree(sys.argv[2], sys.argv[3], sys.argv[4])
 
         else:
             print("Unknown subcommand: %s" % subcmd, file=sys.stderr)

@@ -38,6 +38,9 @@ function isDowngrade(op: OperationLabelDescriptor): boolean {
 export function operationInflightLabel(op: OperationLabelDescriptor, t: TLike): string {
   const tt = t as (k: string, fb?: string) => string
   switch (op.actionId) {
+    case 'update-plugins':
+    case 'update-plugin-compatible':
+      return tt('pluginUpdates.updating', 'Updating plugins')
     case 'update-comfyui':
       return isDowngrade(op)
         ? tt('instancePicker.progressDowngrading', 'Downgrading…')
@@ -69,6 +72,12 @@ export function operationInflightLabel(op: OperationLabelDescriptor, t: TLike): 
 export function operationSuccessLabel(op: OperationLabelDescriptor, t: TLike): string {
   const tt = t as (k: string, fb?: string) => string
   switch (op.actionId) {
+    case 'update-plugins':
+    case 'update-plugin-compatible':
+      return tt(
+        'pluginUpdates.completedStopped',
+        'Plugin update complete. ComfyUI remains stopped until you start it manually.'
+      )
     case 'update-comfyui':
       return isDowngrade(op)
         ? tt('instancePicker.progressDowngraded', 'Downgrade complete')

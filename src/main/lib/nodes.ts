@@ -29,6 +29,19 @@ function readTomlProjectField(tomlPath: string, field: string): string | null {
   }
 }
 
+function readTomlProjectUrl(tomlPath: string, field: string): string | null {
+  try {
+    const content = fs.readFileSync(tomlPath, 'utf-8')
+    const parsed = parseToml(content)
+    const project = parsed.project as Record<string, unknown> | undefined
+    const urls = project?.urls as Record<string, unknown> | undefined
+    const value = urls?.[field]
+    return typeof value === 'string' ? value : null
+  } catch {
+    return null
+  }
+}
+
 /** True if the directory contains any top-level Python source (ComfyUI loads
  *  a custom-node directory as a module, so a real node always has one). */
 function hasTopLevelPython(nodePath: string): boolean {
@@ -48,7 +61,8 @@ function identifyNode(nodePath: string): Omit<ScannedNode, 'enabled'> | null {
   if (fs.existsSync(trackingPath)) {
     const id = readTomlProjectField(tomlPath, 'name') || dirName
     const version = readTomlProjectField(tomlPath, 'version') || undefined
-    return { id, type: 'cnr', dirName, version }
+    const url = readTomlProjectUrl(tomlPath, 'Repository') || undefined
+    return { id, type: 'cnr', dirName, version, url }
   }
 
   // Git node: has .git/ directory (or .git file for worktrees/submodules)

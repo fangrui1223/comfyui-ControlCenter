@@ -1,12 +1,27 @@
-export type PickerTab = 'config' | 'status' | 'update' | 'snapshots' | 'storage' | 'console'
+export type PickerTab =
+  | 'config'
+  | 'status'
+  | 'update'
+  | 'plugins'
+  | 'snapshots'
+  | 'storage'
+  | 'console'
 
 /** Narrowing of `DetailSection.tab`. Uses 'settings' where PickerTab uses 'config'. */
-export type SectionTab = 'settings' | 'status' | 'update' | 'snapshots' | 'storage' | 'console'
+export type SectionTab =
+  | 'settings'
+  | 'status'
+  | 'update'
+  | 'plugins'
+  | 'snapshots'
+  | 'storage'
+  | 'console'
 
 const PICKER_TABS: ReadonlySet<PickerTab> = new Set([
   'config',
   'status',
   'update',
+  'plugins',
   'snapshots',
   'storage',
   'console'
@@ -30,8 +45,8 @@ export type InstanceCategory = 'local' | 'cloud' | 'remote'
  */
 const HIDDEN_TABS_BY_CATEGORY: Record<InstanceCategory, ReadonlySet<PickerTab>> = {
   local: new Set(),
-  cloud: new Set(['console']),
-  remote: new Set(['console'])
+  cloud: new Set(['console', 'plugins']),
+  remote: new Set(['console', 'plugins'])
 }
 
 /** Whether `tab` is permitted for an instance of `category`. Unknown categories

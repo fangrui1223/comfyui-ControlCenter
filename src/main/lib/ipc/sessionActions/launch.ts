@@ -89,6 +89,7 @@ import {
 import { appendLog } from '../../logsBroadcast'
 import { reconcileManagerConfigForLaunch } from '../../managerConfigLaunch'
 import { recoverInterruptedComfyOp } from '../../opMarker'
+import { recoverInterruptedPluginUpdate } from '../../pluginEnvironmentBackup'
 import { waitLaunchSpawnHold } from '../../e2eOverrides'
 import { migrateEnvLayout } from '../../../sources/standalone/install'
 import { writeComfyEnvironment } from '../../../sources/standalone/envPaths'
@@ -520,6 +521,9 @@ async function runLaunch(
     // failure path, not just dropped into the main-process log.
     const recoveryLog: string[] = []
     try {
+      if (await recoverInterruptedPluginUpdate(inst, (text) => recoveryLog.push(text))) {
+        return { ok: false, message: i18n.t('pluginUpdates.compatibility.recoveredStopped') }
+      }
       const recovered = await recoverInterruptedComfyOp(
         inst.installPath,
         (text) => {

@@ -158,6 +158,24 @@ export function registerPickerSettingsIpc(options: PickerSettingsIpcOptions): vo
     dispatchInvoke('get-comfy-args', event, payload?.installationId)
   )
 
+  ipcMain.handle(
+    CH.getPluginUpdates,
+    (event, payload: { installationId?: unknown; refresh?: unknown }) =>
+      dispatchInvoke('get-plugin-updates', event, payload?.installationId, payload?.refresh)
+  )
+
+  ipcMain.handle(
+    CH.getPluginCompatibilityPlan,
+    (event, payload: { installationId?: unknown; dirName?: unknown; refresh?: unknown }) =>
+      dispatchInvoke(
+        'get-plugin-compatibility-plan',
+        event,
+        payload?.installationId,
+        payload?.dirName,
+        payload?.refresh
+      )
+  )
+
   ipcMain.handle(CH.browseFolder, (event, payload: { defaultPath?: unknown }) =>
     dispatchInvoke('browse-folder', event, payload?.defaultPath)
   )

@@ -66,6 +66,20 @@ export type {
   AppUpdateState,
   AppUpdateDownloadProgress,
   CloudUserTier,
+  PluginUpdateStatus,
+  PluginUpdateReasonCode,
+  PluginUpdateItem,
+  PluginCompatibilityVerdict,
+  PluginDependencyDeclaration,
+  PluginDependencyDifference,
+  PluginInstallHookDifference,
+  PluginCompatibilityEnvironment,
+  PluginCompatibilityValidation,
+  PluginCompatibilityPlan,
+  PluginUpdateRunStatus,
+  PluginUpdateRunItem,
+  PluginUpdateRunSummary,
+  PluginUpdateInventory,
   ElectronApi
 } from '../../../types/ipc'
 export { REQUIRES_STOPPED } from '../../../types/ipc'

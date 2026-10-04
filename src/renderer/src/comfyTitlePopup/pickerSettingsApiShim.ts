@@ -37,6 +37,8 @@ const API_MAP = {
   importSnapshotsConfirm: 'pickerSettingsImportSnapshotsConfirm',
   previewSnapshotFile: 'pickerSettingsPreviewSnapshotFile',
   getComfyArgs: 'pickerSettingsGetComfyArgs',
+  getPluginUpdates: 'pickerSettingsGetPluginUpdates',
+  getPluginCompatibilityPlan: 'pickerSettingsGetPluginCompatibilityPlan',
   previewLocalMigration: 'pickerSettingsPreviewLocalMigration',
   onReleaseCacheEnriched: 'pickerSettingsOnReleaseCacheEnriched',
   terminalSubscribe: 'terminalSubscribe',

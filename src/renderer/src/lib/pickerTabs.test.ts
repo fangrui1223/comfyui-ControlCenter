@@ -6,6 +6,7 @@ describe('pickerTabs', () => {
     it('accepts known tabs and rejects everything else', () => {
       expect(isPickerTab('console')).toBe(true)
       expect(isPickerTab('config')).toBe(true)
+      expect(isPickerTab('plugins')).toBe(true)
       expect(isPickerTab('nope')).toBe(false)
       expect(isPickerTab(null)).toBe(false)
       expect(isPickerTab(undefined)).toBe(false)
@@ -24,10 +25,13 @@ describe('pickerTabs', () => {
     it('hides Console for cloud and remote (no local PTY to attach a shell to)', () => {
       expect(isTabAllowedForCategory('console', 'cloud')).toBe(false)
       expect(isTabAllowedForCategory('console', 'remote')).toBe(false)
+      expect(isTabAllowedForCategory('plugins', 'cloud')).toBe(false)
+      expect(isTabAllowedForCategory('plugins', 'remote')).toBe(false)
     })
 
     it('allows Console for local instances', () => {
       expect(isTabAllowedForCategory('console', 'local')).toBe(true)
+      expect(isTabAllowedForCategory('plugins', 'local')).toBe(true)
     })
 
     it('allows non-console tabs for every category', () => {
