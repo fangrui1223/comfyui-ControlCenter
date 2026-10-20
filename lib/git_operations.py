@@ -33,6 +33,8 @@ import os
 import json
 import re
 import sys
+import shutil
+import tempfile
 import time
 from collections import deque
 from datetime import datetime, timedelta, timezone
@@ -71,6 +73,20 @@ except (ImportError, AttributeError):
     GIT_SORT_TOPOLOGICAL = pygit2.GIT_SORT_TOPOLOGICAL  # pre-1.15
     GIT_SORT_TIME = pygit2.GIT_SORT_TIME
 
+try:
+    from pygit2.enums import ConfigLevel as _ConfigLevel
+    _INSPECTION_CONFIG_LEVELS = (_ConfigLevel.SYSTEM, _ConfigLevel.XDG, _ConfigLevel.GLOBAL)
+except (ImportError, AttributeError):
+    _INSPECTION_CONFIG_LEVELS = (
+        pygit2.GIT_CONFIG_LEVEL_SYSTEM, pygit2.GIT_CONFIG_LEVEL_XDG, pygit2.GIT_CONFIG_LEVEL_GLOBAL,
+    )
+
+# Preserve checkout/ignore semantics for local status checks. Network operations
+# still use the hardened configuration, including before and after inspection.
+_INSPECTION_CONFIG_PATHS = {
+    level: pygit2.settings.search_path[level] for level in _INSPECTION_CONFIG_LEVELS
+}
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -98,18 +114,19 @@ def to_https_url(url):
     return url
 
 
-def open_repo(repo_path):
+def open_repo(repo_path, read_only=False):
     """Open a pygit2 Repository, mirroring update_comfyui.py patterns."""
     repo_path = os.path.abspath(repo_path.rstrip("/\\"))
     git_dir = os.path.join(repo_path, ".git")
 
     # Ensure required .git subdirectories exist (archive extraction can
     # drop empty directories that libgit2 requires).
-    for sub in ["refs/heads", "refs/tags", "refs/remotes"]:
-        try:
-            os.makedirs(os.path.join(git_dir, sub), exist_ok=True)
-        except OSError:
-            pass
+    if not read_only:
+        for sub in ["refs/heads", "refs/tags", "refs/remotes"]:
+            try:
+                os.makedirs(os.path.join(git_dir, sub), exist_ok=True)
+            except OSError:
+                pass
 
     repo = None
     errors = []
@@ -136,7 +153,8 @@ def open_repo(repo_path):
     # Force core.symlinks=false on Windows so any checkout on this repo can't
     # fail on a symlink the user lacks the privilege to create (see
     # disable_symlinks). Covers checkout / fetch-and-checkout / rollback paths.
-    disable_symlinks(repo)
+    if not read_only:
+        disable_symlinks(repo)
 
     return repo
 
@@ -861,6 +879,22 @@ def cmd_ls_remote_ref(url, ref):
         sys.exit(1)
 
 
+def inspect_worktree_status(repo_path):
+    """Use ordinary Git text/ignore rules only while reading local file status."""
+    hardened_paths = {
+        level: pygit2.settings.search_path[level] for level in _INSPECTION_CONFIG_LEVELS
+    }
+    try:
+        for level, search_path in _INSPECTION_CONFIG_PATHS.items():
+            pygit2.settings.search_path[level] = search_path
+        # A fresh repository avoids reusing the network repo's cached config.
+        # No fetch, checkout, external Git command, or config write occurs here.
+        return open_repo(repo_path, read_only=True).status(untracked_files="all")
+    finally:
+        for level, search_path in hardened_paths.items():
+            pygit2.settings.search_path[level] = search_path
+
+
 def cmd_inspect_update(repo_path, should_fetch=False):
     """Print one JSON object describing a worktree and its upstream.
 
@@ -869,7 +903,7 @@ def cmd_inspect_update(repo_path, should_fetch=False):
     unreachable. The command never checks out, merges, resets, or writes the
     worktree.
     """
-    repo = open_repo(repo_path)
+    repo = open_repo(repo_path, read_only=True)
     fetch_error = None
     origin = None
     try:
@@ -919,7 +953,13 @@ def cmd_inspect_update(repo_path, should_fetch=False):
         "remoteCommit": str(remote_oid) if remote_oid is not None else None,
         "ahead": ahead,
         "behind": behind,
-        "dirty": bool(repo.status()),
+        # Ignore only untracked Python bytecode. Tracked caches, source,
+        # configuration, and other untracked files retain update protection.
+        "dirty": any(
+            status != pygit2.GIT_STATUS_WT_NEW
+            or re.fullmatch(r"(?:[^/]+/)*__pycache__/[^/]+\.pyc", filename) is None
+            for filename, status in inspect_worktree_status(repo_path).items()
+        ),
         "fetchError": fetch_error,
     }, ensure_ascii=False))
 
@@ -933,13 +973,15 @@ def cmd_reset_hard(repo_path, commit):
 
 
 def cmd_export_tree(repo_path, ref, destination):
-    """Export a commit tree without changing the repository worktree.
+    """Export checkout bytes through an isolated index, matching Manager v4.
 
-    The destination must be empty. Symlink blobs are materialized as ordinary
-    files so a compatibility inspection can never create links outside its
-    temporary staging directory.
+    The installed repo is opened read-only. Only Git's built-in text checkout
+    conversion is allowed; links, submodules and custom filters require review.
+    System/global config has been hardened just as in Manager's pygit2 backend.
     """
-    repo = open_repo(repo_path)
+    repo_path = os.path.abspath(repo_path)
+    git_dir = os.path.join(repo_path, ".git")
+    repo = pygit2.Repository(git_dir if os.path.isdir(git_dir) else repo_path)
     oid = resolve_ref(repo, ref)
     commit = repo.get(oid).peel(pygit2.Commit)
     destination = os.path.abspath(destination)
@@ -952,7 +994,9 @@ def cmd_export_tree(repo_path, ref, destination):
     max_files = 50000
     max_bytes = 1024 * 1024 * 1024
 
-    def export_dir(tree, relative=""):
+    paths = []
+
+    def inspect_dir(tree, relative=""):
         nonlocal file_count, byte_count
         for entry in tree:
             if entry.name in (".", "..") or "/" in entry.name or "\\" in entry.name:
@@ -963,18 +1007,86 @@ def cmd_export_tree(repo_path, ref, destination):
                 raise RuntimeError("Git tree path escaped staging directory")
             obj = repo.get(entry.id)
             if isinstance(obj, pygit2.Tree):
-                os.makedirs(target, exist_ok=True)
-                export_dir(obj, child_relative)
-            elif isinstance(obj, pygit2.Blob):
+                inspect_dir(obj, child_relative)
+            elif isinstance(obj, pygit2.Blob) and entry.filemode in (0o100644, 0o100755):
                 file_count += 1
                 byte_count += obj.size
                 if file_count > max_files or byte_count > max_bytes:
                     raise RuntimeError("Git tree exceeds compatibility staging limits")
-                os.makedirs(os.path.dirname(target), exist_ok=True)
-                with open(target, "wb") as output:
-                    output.write(obj.data)
+                paths.append(child_relative.replace(os.sep, "/"))
+            else:
+                raise RuntimeError("Git links or submodules require separate compatibility review")
 
-    export_dir(commit.tree)
+    inspect_dir(commit.tree)
+
+    def attribute_blobs(tree, relative=""):
+        result = {}
+        for entry in tree:
+            child = "%s/%s" % (relative, entry.name) if relative else entry.name
+            obj = repo.get(entry.id)
+            if isinstance(obj, pygit2.Tree):
+                result.update(attribute_blobs(obj, child))
+            elif entry.name == ".gitattributes":
+                result[child] = str(entry.id)
+        return result
+
+    # libgit2's update filter cache can consult old or newly written worktree
+    # attributes depending on checkout order. Do not approve ambiguous bytes.
+    current = repo.head.peel(pygit2.Commit)
+    if attribute_blobs(current.tree) != attribute_blobs(commit.tree):
+        raise RuntimeError("Changes to .gitattributes require separate review with Manager's pygit2 backend")
+    with tempfile.TemporaryDirectory(prefix="fr-plugin-pygit-checkout-") as scratch:
+        worktree = os.path.join(scratch, "worktree")
+        isolated = pygit2.init_repository(worktree)
+        common_dir = repo.path
+        common_file = os.path.join(repo.path, "commondir")
+        if os.path.isfile(common_file):
+            with open(common_file, encoding="utf-8") as handle:
+                common_dir = os.path.abspath(os.path.join(repo.path, handle.read().strip()))
+        # Alternate backends are read-only. Index/config/checkout writes go
+        # exclusively to this disposable repository, never the source repo.
+        isolated.odb.add_disk_alternate(os.path.join(common_dir, "objects"))
+        for key in ("core.autocrlf", "core.eol", "core.attributesfile"):
+            try:
+                value = repo.config[key]
+            except KeyError:
+                continue
+            if key == "core.attributesfile":
+                value = os.path.abspath(os.path.join(repo.workdir, os.path.expanduser(value)))
+            isolated.config[key] = value
+        isolated.config["core.symlinks"] = False
+        info_attributes = os.path.join(common_dir, "info", "attributes")
+        if os.path.isfile(info_attributes):
+            shutil.copyfile(info_attributes, os.path.join(isolated.path, "info", "attributes"))
+        isolated.index.read_tree(commit.tree)
+        isolated.index.write()
+        flags = pygit2.enums.AttrCheck.INDEX_ONLY
+        for relative in paths:
+            for name in ("filter", "working-tree-encoding"):
+                value = isolated.get_attr(relative, name, flags=flags)
+                if value is not None and value is not False:
+                    raise RuntimeError("Git checkout attribute %s requires separate review: %s" % (name, relative))
+        # Seed the current tree and perform the same switch as Manager, using
+        # the unchanged attribute rules checked above.
+        strategy = pygit2.enums.CheckoutStrategy.FORCE
+        isolated.checkout_tree(isolated.get(repo.head.target), strategy=strategy)
+        isolated.checkout_tree(isolated.get(commit.id), strategy=strategy)
+        for relative in paths:
+            output = os.path.join(destination, relative)
+            os.makedirs(os.path.dirname(output), exist_ok=True)
+            previous = None
+            try:
+                entry = current.tree[relative]
+                target_entry = commit.tree[relative]
+                if entry.id == target_entry.id and entry.filemode == target_entry.filemode:
+                    previous = os.path.join(repo.workdir, relative)
+            except KeyError:
+                pass
+            source_file = previous or os.path.join(worktree, relative)
+            if os.path.islink(source_file) or not os.path.isfile(source_file):
+                raise RuntimeError("Existing Git source is not a regular file")
+            shutil.copyfile(source_file, output)
+        isolated.free()
     print(json.dumps({"files": file_count, "bytes": byte_count}))
 
 

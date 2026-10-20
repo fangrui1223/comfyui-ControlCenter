@@ -72,6 +72,7 @@ export type PluginUpdateStatus =
   | 'detached'
   | 'no-upstream'
   | 'unreachable'
+  | 'check-failed'
   | 'unsupported'
 
 export type PluginUpdateReasonCode =
@@ -84,6 +85,7 @@ export type PluginUpdateReasonCode =
   | 'detached'
   | 'no-upstream'
   | 'remote-unreachable'
+  | 'local-check-failed'
   | 'missing-git-remote'
   | 'manual-install'
   | 'file-node'

@@ -42,3 +42,6 @@ docs/telemetry.md
 __pycache__/
 *.pyc
 coverage/
+
+# Local incident backups, workflow experiments, and runtime evidence
+artifacts/

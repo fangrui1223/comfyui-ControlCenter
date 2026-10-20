@@ -1,0 +1,102 @@
+{
+  "recordDate": "2026-10-20",
+  "timezone": "Asia/Shanghai",
+  "product": "FR ComfyUI Control Center",
+  "installedVersion": "1.0.54",
+  "recordSource": "Verified results from this local troubleshooting session; this file does not initiate another environment scan.",
+  "report": "docs/incidents/2026-10-20-plugin-git-dirty-false-positives.md",
+  "issues": [
+    {
+      "id": "untracked-python-bytecode-dirty-false-positive",
+      "rootCause": "All untracked files, including generated Python bytecode, were counted as protected local changes.",
+      "fix": "Exclude only untracked .pyc files directly inside __pycache__ directories in both inspection backends; preserve tracked and other untracked file protection."
+    },
+    {
+      "id": "inherited-git-config-dirty-false-positive",
+      "rootCause": "Network configuration hardening also hid the system core.autocrlf setting from worktree status checks, misclassifying unchanged CRLF content; inherited ignore rules were also at risk.",
+      "fix": "Restore original config search paths only around a fresh read-only local status query; restore hardened paths in finally and retain hardened network configuration."
+    }
+  ],
+  "runtime": {
+    "python": "C:\\FR_comfyui_next\\standalone-env\\python.exe",
+    "helper": "C:\\Users\\fangr\\AppData\\Local\\Programs\\FR ComfyUI Control Center\\resources\\lib\\git_operations.py",
+    "helperSha256": "17c3d14292579731ea234a5c4b6979e74402af6aecc2057c5cf79f5d68b41a73",
+    "helperApplied": true,
+    "installedAsarReplaced": false,
+    "installedSystemGitCacheFixPendingPackaging": true,
+    "newInstallerCreated": false,
+    "published": false
+  },
+  "verifiedPlugins": [
+    {
+      "name": "Comfyui_Minimax_h3_latent_Upscaler",
+      "commit": "40316cf008b2fd8663263270669eb4da23f89d2c",
+      "untrackedBytecodeCountObserved": 5,
+      "dirty": false,
+      "ahead": 0,
+      "behind": 0
+    },
+    {
+      "name": "ComfyUI-DD-Translation",
+      "commit": "9cc769b5d5d9fdec4a80533e5d848ec4ff4f4b8a",
+      "untrackedBytecodeCountObserved": 1,
+      "dirty": false,
+      "ahead": 0,
+      "behind": 0
+    },
+    {
+      "name": "ComfyUI-FeiHou-Toolbox",
+      "commit": "312c34b23cff890d06ec28a74ed05695ae307ac0",
+      "dirty": false,
+      "ahead": 0,
+      "behind": 0
+    }
+  ],
+  "verificationScope": {
+    "remoteFetched": false,
+    "comparisonUsesCachedUpstreamRefs": true,
+    "gitMetadataHashesUnchanged": ["HEAD", "index", "config"],
+    "bytecodeFilesDeleted": false,
+    "pluginSourceChanged": false,
+    "pythonDependenciesChanged": false,
+    "stableOrSharedModelsChanged": false,
+    "userConfigChanged": false,
+    "runningProcessesChanged": false
+  },
+  "testRuns": [
+    {
+      "phase": "python-cache-fix",
+      "unitTestsPassed": 185,
+      "gitIntegrationTestsPassed": 4,
+      "allFourTypechecksPassed": true,
+      "targetedLintAndFormattingPassed": true,
+      "productionBuildPassed": true
+    },
+    {
+      "phase": "inherited-config-follow-up",
+      "unitTestsPassed": 140,
+      "gitIntegrationTestsPassed": 6,
+      "integrationTypecheckPassed": true,
+      "targetedLintAndFormattingPassed": true,
+      "fullProductionBuildRepeated": false
+    }
+  ],
+  "testCountNote": "Runs overlap. Do not add these counts as independent coverage or describe them as the full repository test suite.",
+  "transactions": [
+    {
+      "manifest": "artifacts/python-cache-fix-20261020/manifest.json",
+      "beforeSha256": "11e2317f0841d1b1befd7f43d2a4bfdbb092019f501ef422e6df7be455e12a27",
+      "afterSha256": "d6de4494e0dc2b135db3a589be1b2c0e1d50d5b7974305800b553e47d81f7721"
+    },
+    {
+      "manifest": "artifacts/git-inspection-config-fix-20261020/manifest.json",
+      "beforeSha256": "d6de4494e0dc2b135db3a589be1b2c0e1d50d5b7974305800b553e47d81f7721",
+      "afterSha256": "17c3d14292579731ea234a5c4b6979e74402af6aecc2057c5cf79f5d68b41a73"
+    }
+  ],
+  "rollbackOrder": [
+    "node artifacts/git-inspection-config-fix-20261020/deploy-helper.cjs rollback",
+    "node artifacts/python-cache-fix-20261020/deploy-helper.cjs rollback"
+  ],
+  "rollbackNote": "Run only if rollback is intended. Each script verifies hashes and refuses to overwrite a subsequent helper update. No rollback was performed while recording these results."
+}

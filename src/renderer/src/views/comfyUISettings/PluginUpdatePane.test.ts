@@ -71,6 +71,8 @@ function compatibilityPlan(): PluginCompatibilityPlan {
     nativeBinaryChanges: [],
     preexistingPipCheckIssues: [],
     verdict: 'ready',
+    executionMode: 'source-only',
+    packageChanges: [],
     blockers: [],
     warnings: [],
     proposedChanges: []
@@ -96,6 +98,7 @@ function mountPane() {
           messages: {
             en: {
               pluginUpdates: {
+                updateSelectedCount: 'Update selected ({n})',
                 compatibility: {
                   confirmPackages: 'Install these {n} packages?',
                   confirmRecovery: 'Restore backups on failure. Remain stopped.'
@@ -239,6 +242,44 @@ describe('PluginUpdatePane', () => {
     expect(wrapper.find('[data-testid="plugin-update-selected"]').exists()).toBe(false)
   })
 
+  it('shows a local inspection failure without offering an update or labelling it as a remote outage', async () => {
+    const value = inventory()
+    Object.assign(value.items[0]!, {
+      status: 'check-failed',
+      reasonCode: 'local-check-failed',
+      reason: 'Local inspection failed.',
+      updateable: false,
+      remoteCommit: null
+    })
+    installApi(value)
+    const wrapper = mountPane()
+    await flushPromises()
+    expect(wrapper.find('.plugin-row__status').text()).toContain('Local check failed')
+    expect(wrapper.find('.plugin-row__status').text()).not.toContain('Remote unavailable')
+    expect(wrapper.find('[data-testid="plugin-update-selected"]').exists()).toBe(false)
+    expect(
+      (wrapper.get('[data-testid="plugin-select-ExampleNode"]').element as HTMLInputElement)
+        .disabled
+    ).toBe(true)
+  })
+
+  it('shows local changes and a valid branch after recovering the inspection', async () => {
+    const value = inventory()
+    Object.assign(value.items[0]!, {
+      status: 'dirty',
+      reasonCode: 'dirty',
+      reason: 'Save local changes before updating.',
+      updateable: false,
+      dirty: true
+    })
+    installApi(value)
+    const wrapper = mountPane()
+    await flushPromises()
+    expect(wrapper.find('.plugin-row__status').text()).toContain('Local changes')
+    expect(wrapper.find('.plugin-row__meta').text()).toContain('main')
+    expect(wrapper.find('[data-testid="plugin-update-selected"]').exists()).toBe(false)
+  })
+
   it('renders a Manager CNR package with installed and latest versions', async () => {
     const value = inventory()
     value.items[0] = {
@@ -301,7 +342,7 @@ describe('PluginUpdatePane', () => {
     expect(wrapper.find('.plugin-row__details').text()).toContain('Updated')
   })
 
-  it('keeps a compiled plugin out of the standard batch and exposes a separate compatible update', async () => {
+  it('allows a compiled source update to join the batch only after compatibility passes', async () => {
     const value = inventory()
     value.items[0] = {
       ...value.items[0]!,
@@ -329,15 +370,148 @@ describe('PluginUpdatePane', () => {
     expect(wrapper.get('[data-testid="plugin-compatibility-report-ExampleNode"]').text()).toContain(
       'Compatibility passed'
     )
+    expect(wrapper.get('.plugin-row > input').attributes('disabled')).toBeUndefined()
     await wrapper.get('[data-testid="plugin-compatibility-execute-ExampleNode"]').trigger('click')
+    expect(wrapper.emitted('run-action')).toBeUndefined()
+    expect(wrapper.get('[data-testid="plugin-update-selected"]').text()).toContain('(1)')
+    await wrapper.get('[data-testid="plugin-update-selected"]').trigger('click')
 
     expect(wrapper.emitted('run-action')?.at(-1)?.[0]).toMatchObject({
-      id: 'update-plugin-compatible',
+      id: 'update-plugins',
       data: {
-        dirName: 'ExampleNode',
-        targetCommit: '2222222222222222222222222222222222222222',
-        planDigest: 'b'.repeat(64)
+        pluginIds: ['ExampleNode'],
+        compatibilityPlans: [
+          {
+            dirName: 'ExampleNode',
+            targetCommit: '2222222222222222222222222222222222222222',
+            planDigest: 'b'.repeat(64)
+          }
+        ]
       }
     })
+  })
+
+  it('emits one action with ten checked compiled source updates and their exact plans', async () => {
+    const value = inventory()
+    value.items = Array.from({ length: 10 }, (_, index) => ({
+      ...value.items[0]!,
+      id: `Compiled${index}`,
+      dirName: `Compiled${index}`,
+      updateable: false,
+      hasCompiledDependencies: true,
+      reasonCode: 'compiled-dependencies' as const
+    }))
+    value.summary.total = value.summary.updateAvailable = 10
+    installApi(value)
+    vi.mocked(window.api.getPluginCompatibilityPlan).mockImplementation(async (_id, dirName) => ({
+      ...compatibilityPlan(),
+      pluginId: dirName,
+      dirName
+    }))
+    const wrapper = mountPane()
+    await flushPromises()
+    for (const item of value.items) {
+      await wrapper
+        .get(`[data-testid="plugin-compatibility-check-${item.dirName}"]`)
+        .trigger('click')
+      await flushPromises()
+    }
+    await wrapper.get('.plugin-updates__select-all input').setValue(true)
+    expect(wrapper.get('[data-testid="plugin-update-selected"]').text()).toContain('(10)')
+    expect(wrapper.get('[data-testid="plugin-batch-backup-hint"]').text()).toContain(
+      'one Python environment backup'
+    )
+    await wrapper.get('[data-testid="plugin-update-selected"]').trigger('click')
+
+    expect(wrapper.emitted('run-action')).toHaveLength(1)
+    expect(wrapper.emitted('run-action')?.[0]?.[0]).toMatchObject({
+      id: 'update-plugins',
+      data: {
+        pluginIds: value.items.map((item) => item.dirName),
+        compatibilityPlans: value.items.map((item) => ({
+          dirName: item.dirName,
+          targetCommit: item.remoteCommit,
+          planDigest: 'b'.repeat(64)
+        }))
+      }
+    })
+  })
+
+  it('removes a selected ordinary plugin from the batch when checking requires dependency changes', async () => {
+    const plan = {
+      ...compatibilityPlan(),
+      verdict: 'approval-required' as const,
+      executionMode: 'wheel-update' as const
+    }
+    installApi(inventory(), plan)
+    const wrapper = mountPane()
+    await flushPromises()
+    await wrapper.get('[data-testid="plugin-select-ExampleNode"]').setValue(true)
+    await wrapper.get('[data-testid="plugin-compatibility-check-ExampleNode"]').trigger('click')
+    await flushPromises()
+
+    expect(
+      wrapper.get('[data-testid="plugin-select-ExampleNode"]').attributes('disabled')
+    ).toBeDefined()
+    expect(wrapper.get('[data-testid="plugin-select-ExampleNode"]').element).toHaveProperty(
+      'checked',
+      false
+    )
+    expect(wrapper.find('[data-testid="plugin-update-actions"]').exists()).toBe(false)
+    expect(wrapper.emitted('run-action')).toBeUndefined()
+  })
+
+  it('drops a selected compiled plan when a refresh changes its exact target', async () => {
+    const value = inventory()
+    value.items[0] = {
+      ...value.items[0]!,
+      updateable: false,
+      reasonCode: 'compiled-dependencies',
+      hasCompiledDependencies: true
+    }
+    installApi(value)
+    const wrapper = mountPane()
+    await flushPromises()
+    await wrapper.get('[data-testid="plugin-compatibility-check-ExampleNode"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="plugin-select-ExampleNode"]').setValue(true)
+    vi.mocked(window.api.getPluginUpdates).mockResolvedValue({
+      ...value,
+      items: [{ ...value.items[0]!, remoteCommit: '3'.repeat(40) }]
+    })
+    await wrapper.get('[data-testid="plugin-update-refresh"]').trigger('click')
+    await flushPromises()
+
+    expect(
+      wrapper.get('[data-testid="plugin-select-ExampleNode"]').attributes('disabled')
+    ).toBeDefined()
+    expect(wrapper.get('[data-testid="plugin-select-ExampleNode"]').element).toHaveProperty(
+      'checked',
+      false
+    )
+    expect(wrapper.find('[data-testid="plugin-update-actions"]').exists()).toBe(false)
+  })
+
+  it('does not submit a selected compiled plan that expires before execution', async () => {
+    const value = inventory()
+    value.items[0] = {
+      ...value.items[0]!,
+      updateable: false,
+      reasonCode: 'compiled-dependencies',
+      hasCompiledDependencies: true
+    }
+    const expiresAt = Date.now() + 60_000
+    installApi(value, { ...compatibilityPlan(), expiresAt: new Date(expiresAt).toISOString() })
+    const wrapper = mountPane()
+    await flushPromises()
+    await wrapper.get('[data-testid="plugin-compatibility-check-ExampleNode"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="plugin-select-ExampleNode"]').setValue(true)
+    vi.spyOn(Date, 'now').mockReturnValue(expiresAt + 1)
+    await wrapper.get('[data-testid="plugin-update-selected"]').trigger('click')
+
+    expect(wrapper.emitted('run-action')).toBeUndefined()
+    expect(wrapper.find('[data-testid="plugin-update-actions"]').exists()).toBe(false)
+    expect(wrapper.get('.plugin-updates__message.is-error').text()).toContain('expired')
   })
 })

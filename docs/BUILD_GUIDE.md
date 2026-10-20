@@ -67,6 +67,9 @@ M0 为避免改变全局开发者设置，采用管理员终端完成打包。�
 
 ## 5. 常见故障
 
+已确认的本机问题、修复证据和防复发约束见[本地故障记录索引](incidents/README.md)。
+插件 Git 状态涉及 Windows 换行、配置继承、后端差异及源码/安装生效范围时，先读[2026-10-20 记录](incidents/2026-10-20-plugin-git-dirty-false-positives.md)。
+
 ### MSB8040 / Spectre-mitigated libraries required
 
 原因：`node-pty` 原生模块启用了 Spectre 缓解，但 Visual Studio 仅安装了普通 MSVC 库。安装与当前 MSVC 小版本对应的 x86/x64 Spectre 库后重建。不要通过关闭依赖的 Spectre 选项来掩盖缺失工具链。
@@ -88,6 +91,7 @@ corepack pnpm run bootstrap:fetch -- --platform win-x64
 ### pnpm 版本漂移
 
 始终以 `corepack pnpm` 调用，遵守 `package.json` 的 `packageManager` 版本；不要用全局 pnpm 更新锁文件。
+Git 提交钩子同样使用 `corepack pnpm`。钩子出现依赖清除或无 TTY 安装错误时，先核对实际 pnpm 路径，见[本机提交钩子故障记录](incidents/2026-10-20-commit-hook-package-manager.md)。
 
 ## 6. 边界
 

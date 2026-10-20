@@ -85,6 +85,8 @@ From there you can add more installs, take snapshots before risky changes, and u
 
 ## Development
 
+FR fork 本地维护入口：[问题与修复记录](docs/incidents/README.md)（原因、验证、生效范围、回滚及防复发要点）。
+
 Contributions are welcome. The app is an [Electron](https://www.electronjs.org/) + [Vue 3](https://vuejs.org/) + [TypeScript](https://www.typescriptlang.org/) project built with [electron-vite](https://electron-vite.org/).
 
 ### Prerequisites

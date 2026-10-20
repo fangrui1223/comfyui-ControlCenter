@@ -202,10 +202,12 @@ export async function beginPluginTransaction(
 export async function restorePluginTransaction(
   installation: InstallationRecord,
   journal: PluginTransactionJournal,
-  sendOutput: (text: string) => void
+  sendOutput: (text: string) => void,
+  progress?: (percent: number, status: string) => void
 ): Promise<string[]> {
   validateJournal(installation.installPath, journal)
   await assertRealRecoveryPaths(installation.installPath, journal)
+  progress?.(-1, 'Restoring plugin source from the offline backup…')
   const errors = await restorePluginSourceBackups(journal.sourceBackups, sendOutput, true)
   if (journal.environment?.prepared) {
     try {
@@ -215,20 +217,42 @@ export async function restorePluginTransaction(
         throw new Error('Environment rollback backup is missing.')
       inside(installation.installPath, await fs.promises.realpath(path.dirname(sourcePath)))
       inside(journal.root, await fs.promises.realpath(backupPath))
+      progress?.(-1, 'Checking the offline Python environment backup…')
+      const bytes = progress ? await directoryByteSize(backupPath) : 0
+      progress?.(-1, 'Removing the changed Python environment…')
       await fs.promises.rm(sourcePath, { recursive: true, force: true })
+      let visitedBytes = 0
+      let lastProgress = 0
       await fs.promises.cp(backupPath, sourcePath, {
         recursive: true,
         force: false,
         errorOnExist: true,
         preserveTimestamps: true,
-        verbatimSymlinks: true
+        verbatimSymlinks: true,
+        filter: progress
+          ? async (source) => {
+              const entry = await fs.promises.lstat(source)
+              if (entry.isFile()) visitedBytes += entry.size
+              if (Date.now() - lastProgress > 150) {
+                progress(
+                  Math.min(99, bytes ? (visitedBytes / bytes) * 100 : 0),
+                  'Restoring Python environment from the offline backup…'
+                )
+                lastProgress = Date.now()
+              }
+              return true
+            }
+          : undefined
       })
       sendOutput('Restored Python environment from the offline backup.\n')
     } catch (error) {
       errors.push(`Environment rollback failed: ${(error as Error).message}`)
     }
   }
-  if (!errors.length) await writePluginJournal(installation, journal, 'rolled-back')
+  if (!errors.length) {
+    await writePluginJournal(installation, journal, 'rolled-back')
+    progress?.(100, 'Pre-update source and Python environment restored.')
+  }
   return errors
 }
 

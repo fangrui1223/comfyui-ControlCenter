@@ -293,7 +293,7 @@ async function inspectCnrNode(
     reason = 'The installed CNR version is newer than the registry version.'
   } else if (flags.hasCompiledDependencies && status === 'update-available') {
     reasonCode = 'compiled-dependencies'
-    reason = 'Compiled dependencies require a separate compatibility transaction.'
+    reason = 'Check compatibility for compiled dependencies before updating.'
   } else if (!mutable && status === 'update-available') {
     reasonCode = 'read-only'
     reason = 'This environment is read-only.'
@@ -415,7 +415,7 @@ async function inspectNode(
       reason: !node.enabled
         ? 'Disabled plugins are shown but not updated.'
         : flags.hasCompiledDependencies && status === 'update-available'
-          ? 'Compiled dependencies require a separate compatibility transaction.'
+          ? 'Check compatibility for compiled dependencies before updating.'
           : !mutable && status === 'update-available'
             ? 'This environment is read-only.'
             : reasonForStatus(status),
@@ -437,9 +437,9 @@ async function inspectNode(
       ahead: null,
       behind: null,
       dirty: false,
-      status: 'unreachable',
+      status: 'check-failed',
       updateable: false,
-      reasonCode: 'remote-unreachable',
+      reasonCode: 'local-check-failed',
       reason: (error as Error).message,
       ...flags
     }
@@ -499,7 +499,8 @@ export async function getPluginUpdateInventory(
     'diverged',
     'detached',
     'no-upstream',
-    'unreachable'
+    'unreachable',
+    'check-failed'
   ])
   const inventory: PluginUpdateInventory = {
     installationId: installation.id,

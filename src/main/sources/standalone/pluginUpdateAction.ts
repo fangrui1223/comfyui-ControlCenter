@@ -301,6 +301,29 @@ function requestedCompatiblePlugin(actionData: Record<string, unknown> | undefin
   return { dirName, targetRef, planDigest: planDigest.toLocaleLowerCase('en-US') }
 }
 
+function requestedBatchPlans(
+  actionData: Record<string, unknown> | undefined,
+  pluginIds: string[]
+): Map<string, NonNullable<ReturnType<typeof requestedCompatiblePlugin>>> | null {
+  const raw = actionData?.compatibilityPlans
+  const plans = new Map<string, NonNullable<ReturnType<typeof requestedCompatiblePlugin>>>()
+  if (raw === undefined) return plans
+  if (!Array.isArray(raw) || raw.length > pluginIds.length) return null
+  for (const value of raw) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+    const request = requestedCompatiblePlugin(value as Record<string, unknown>)
+    if (!request || !pluginIds.includes(request.dirName) || plans.has(request.dirName)) return null
+    plans.set(request.dirName, request)
+  }
+  return plans
+}
+
+function sourceOnlyPlan(plan: PluginCompatibilityPlan): boolean {
+  return (
+    plan.verdict === 'ready' && plan.executionMode === 'source-only' && !plan.packageChanges?.length
+  )
+}
+
 async function runPluginUpdateTransaction(
   installation: InstallationRecord,
   selectedItems: PluginUpdateItem[],
@@ -317,10 +340,10 @@ async function runPluginUpdateTransaction(
     return { ok: false, message: 'The active ComfyUI environment was not found.' }
   const managerScript = getBundledScriptPath('manager_operations.py')
   const probeScript = getBundledScriptPath('plugin_compatibility_probe.py')
-  if (!fs.existsSync(managerScript) || (options.compatibilityPlan && !fs.existsSync(probeScript)))
-    return { ok: false, message: 'The bundled update adapter was not found.' }
   const plan = options.compatibilityPlan
   const plans = options.compatibilityPlans ?? (plan ? [plan] : [])
+  if (!fs.existsSync(managerScript) || (plans.length && !fs.existsSync(probeScript)))
+    return { ok: false, message: 'The bundled update adapter was not found.' }
   const runItems: PluginUpdateRunItem[] = selectedItems.map((item) => ({
     id: item.id,
     dirName: item.dirName,
@@ -390,8 +413,11 @@ async function runPluginUpdateTransaction(
     sendProgress('plugin-snapshot', { percent: 100, status: 'Pre-update snapshot saved.' })
     sendProgress('plugin-backup', {
       percent: -1,
-      status: 'Creating source and full Python environment backups…'
+      status: `Creating one shared rollback backup for ${selectedItems.length} plugin(s)…`
     })
+    sendOutput(
+      `Plugin update batch (${selectedItems.length}): one shared Python environment backup.\n`
+    )
     const backups = await preparePluginSourceBackups(
       installation.installPath,
       comfyuiDir,
@@ -451,7 +477,15 @@ async function runPluginUpdateTransaction(
             ? ['--expected-target', itemPlan.targetRef ?? '']
             : [])
         ],
-        { cwd: comfyuiDir, env: { ...process.env, COMFYUI_PATH: comfyuiDir }, sendOutput }
+        {
+          cwd: comfyuiDir,
+          env: {
+            ...process.env,
+            COMFYUI_PATH: comfyuiDir,
+            ...(process.env.COMFY_FORCE_PYGIT2 === '1' ? { CM_USE_PYGIT2: '1' } : {})
+          },
+          sendOutput
+        }
       )
       const output = `${result.stdout}\n${result.stderr}`
       if (result.exitCode !== 0 || /(^|\n)\s*(?:ERROR:|\[bold red\]ERROR)/i.test(output)) {
@@ -460,11 +494,18 @@ async function runPluginUpdateTransaction(
       }
       runItem.status = 'updated'
       runItem.message = 'Manager v4 source update completed.'
-      if (itemPlan)
-        await verifyPluginSource(
-          path.join(comfyuiDir, 'custom_nodes', item.dirName),
-          itemPlan.sourceFiles!
-        )
+      if (itemPlan) {
+        try {
+          await verifyPluginSource(
+            path.join(comfyuiDir, 'custom_nodes', item.dirName),
+            itemPlan.sourceFiles!
+          )
+        } catch (error) {
+          throw new Error(`${item.id}: ${error instanceof Error ? error.message : String(error)}`, {
+            cause: error
+          })
+        }
+      }
       sendProgress(`plugin-update-${index}`, { percent: 100, status: `${item.id} updated.` })
     }
     if (requirements) {
@@ -480,6 +521,7 @@ async function runPluginUpdateTransaction(
       status: requirements ? 'Approved wheels installed.' : 'Python packages retained.'
     })
     await writePluginJournal(installation, journal, 'validating')
+    sendProgress('plugin-verify', { percent: -1, status: 'Checking updated plugin revisions…' })
     invalidatePluginUpdateInventory(installation.id)
     const verified = await getPluginUpdateInventory(installation, true)
     for (const item of selectedItems) {
@@ -490,6 +532,10 @@ async function runPluginUpdateTransaction(
     if (baseline) {
       for (const approved of plans) {
         const index = selectedItems.findIndex((item) => item.dirName === approved.dirName)
+        sendProgress('plugin-verify', {
+          percent: (index / selectedItems.length) * 100,
+          status: `Verifying ${selectedItems[index]!.id} (${index + 1}/${selectedItems.length})…`
+        })
         const checked = await validateCompatibleUpdate(
           installation,
           selectedItems[index]!,
@@ -527,6 +573,7 @@ async function runPluginUpdateTransaction(
     await writePluginJournal(installation, journal, 'committed')
   } catch (error) {
     const failure = (error as Error).message
+    sendOutput(`Plugin update failed: ${failure}\n`)
     const rollbackErrors: string[] = []
     if (journal) {
       sendProgress('plugin-rollback', {
@@ -534,8 +581,22 @@ async function runPluginUpdateTransaction(
         status: 'Restoring the offline pre-update backup…'
       })
       try {
-        rollbackErrors.push(...(await restorePluginTransaction(installation, journal, sendOutput)))
-        if (!rollbackErrors.length) await finishPluginTransaction(installation, journal, false)
+        rollbackErrors.push(
+          ...(await restorePluginTransaction(installation, journal, sendOutput, (percent, status) =>
+            sendProgress('plugin-rollback', { percent, status })
+          ))
+        )
+        if (!rollbackErrors.length) {
+          sendProgress('plugin-rollback', {
+            percent: -1,
+            status: 'Removing completed rollback backups…'
+          })
+          await finishPluginTransaction(installation, journal, false)
+          sendProgress('plugin-rollback', {
+            percent: 100,
+            status: 'The pre-update state was restored.'
+          })
+        }
       } catch (rollbackError) {
         rollbackErrors.push((rollbackError as Error).message)
       }
@@ -595,6 +656,8 @@ export async function handlePluginUpdate(
 ): Promise<ActionResult> {
   const pluginIds = requestedPluginIds(actionData)
   if (pluginIds.length === 0) return { ok: false, message: 'No plugins were selected.' }
+  const requests = requestedBatchPlans(actionData, pluginIds)
+  if (!requests) return { ok: false, message: 'Invalid batch compatibility approvals.' }
   const inventory = await getPluginUpdateInventory(installation, true)
   const selected = pluginIds.map((id) => inventory.items.find((item) => item.dirName === id))
   const missing = selected.findIndex((item) => item == null)
@@ -602,7 +665,18 @@ export async function handlePluginUpdate(
     return { ok: false, message: `Plugin "${pluginIds[missing]}" is no longer installed.` }
   }
   const selectedItems = selected.filter((item): item is PluginUpdateItem => item != null)
-  const blocked = selectedItems.find((item) => !item.updateable)
+  const blocked = selectedItems.find(
+    (item) =>
+      !item.updateable &&
+      !(
+        item.reasonCode === 'compiled-dependencies' &&
+        item.enabled &&
+        !item.dirty &&
+        item.status === 'update-available' &&
+        (item.sourceType === 'cnr' || item.sourceType === 'git') &&
+        requests.has(item.dirName)
+      )
+  )
   if (blocked) {
     return {
       ok: false,
@@ -611,10 +685,44 @@ export async function handlePluginUpdate(
   }
   const plans: PluginCompatibilityPlan[] = []
   for (const item of selectedItems) {
+    const request = requests.get(item.dirName)
+    if (request) {
+      const approved = getApprovedPluginPlan(installation.id, item.dirName, request.planDigest)
+      if (
+        !approved ||
+        approved.installationId !== installation.id ||
+        approved.dirName !== item.dirName ||
+        approved.planDigest !== request.planDigest ||
+        approved.sourceType !== item.sourceType ||
+        approved.currentRef !== installedRef(item) ||
+        approved.targetRef !== request.targetRef ||
+        request.targetRef !== targetRef(item)
+      ) {
+        return {
+          ok: false,
+          message: `${item.id}: The compatibility plan is stale or expired. Check compatibility again.`
+        }
+      }
+      if (!sourceOnlyPlan(approved)) {
+        return {
+          ok: false,
+          message: `${item.id}: Only approved source-only updates can join this batch.`
+        }
+      }
+    }
     const plan = await getPluginCompatibilityPlan(installation, item.dirName, true, inventory)
+    if (request && plan.planDigest !== request.planDigest) {
+      return {
+        ok: false,
+        message: `${item.id}: The compatibility plan changed. Check compatibility again.`
+      }
+    }
     if (
-      plan.verdict !== 'ready' ||
-      plan.executionMode !== 'source-only' ||
+      !sourceOnlyPlan(plan) ||
+      plan.installationId !== installation.id ||
+      plan.dirName !== item.dirName ||
+      plan.sourceType !== item.sourceType ||
+      plan.currentRef !== installedRef(item) ||
       plan.targetRef !== targetRef(item)
     ) {
       return {

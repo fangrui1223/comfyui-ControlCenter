@@ -113,8 +113,12 @@ def read_declarations(root, versions, environment, native, installed_requirement
             else:
                 add(line, source)
 
+    # Manager v4 installs the base requirements.txt. Sibling profiles such as
+    # requirements-prompt-rewriter.txt or repair_dependency_list.txt are separate
+    # opt-in operations unless the base file explicitly includes them. Treating
+    # every profile as mandatory can downgrade packages for an unused feature.
     for file in sorted(root.iterdir()):
-        if file.is_file() and REQUIREMENT_FILES.fullmatch(file.name):
+        if file.is_file() and file.name.lower() == "requirements.txt":
             read_file(file)
     project_path = root / "pyproject.toml"
     if project_path.is_file():
@@ -147,7 +151,10 @@ def read_declarations(root, versions, environment, native, installed_requirement
                     add(str(req), f"installed-metadata:{name}")
             except Exception as error:
                 issues.append(f"Cannot read installed dependency metadata for {name}: {error}")
-    return records, sorted(set(issues))
+    separate_files = [file.name for file in sorted(root.iterdir())
+                      if file.is_file() and REQUIREMENT_FILES.fullmatch(file.name)
+                      and file.resolve() not in seen_files]
+    return records, sorted(set(issues)), separate_files
 
 
 def analyze(request):
@@ -155,11 +162,12 @@ def analyze(request):
     versions = {canonicalize_name(k): v for k, v in request.get("installedPackages", versions).items()}
     requirements = request.get("installedRequirements", requirements)
     environment = dict(default_environment(), **request.get("markerEnvironment", {}))
-    current, current_issues = read_declarations(request["currentRoot"], versions, environment, native, requirements)
-    target, target_issues = read_declarations(request["targetRoot"], versions, environment, native, requirements)
+    current, current_issues, current_separate = read_declarations(request["currentRoot"], versions, environment, native, requirements)
+    target, target_issues, target_separate = read_declarations(request["targetRoot"], versions, environment, native, requirements)
     return {"current": current, "target": target, "issues": target_issues,
             "currentIssues": current_issues, "installedPackages": versions,
-            "installedRequirements": requirements, "markerEnvironment": environment}
+            "installedRequirements": requirements, "markerEnvironment": environment,
+            "optionalRequirementFiles": target_separate, "currentOptionalRequirementFiles": current_separate}
 
 
 def trusted_wheel_url(url, wheelhouse=None):
@@ -290,15 +298,20 @@ def resolve_wheels(request, uv, output_dir, wheelhouse=None):
                     pass  # Existing invalid metadata is reported separately.
         constraints.write_text('\n'.join(sorted(constraints_lines)), encoding='utf-8')
         input_path, excludes, lock = root / "requirements.in", root / "excludes.txt", root / "pylock.toml"
-        input_path.write_text("\n".join(sorted({str(req) for req in roots})), encoding="utf-8")
+        # --excludes omits retained packages from uv's output, but explicit
+        # inputs still require an index candidate. Do not resolve already
+        # satisfied roots again; the metadata closure below still checks their
+        # selected extras and adds any missing transitive requirements.
+        resolver_roots = [req for req in roots if canonicalize_name(req.name) not in retained]
+        input_path.write_text("\n".join(sorted({str(req) for req in resolver_roots})), encoding="utf-8")
         excludes.write_text("\n".join(sorted(retained)), encoding="utf-8")
         args = [uv, "--no-config", "pip", "compile", str(input_path), "--python", sys.executable,
                 "--no-python-downloads", "--no-build", "--no-sources",
                 "--constraints", str(constraints), "--excludes", str(excludes), "--format", "pylock.toml",
                 "--output-file", str(lock), "--cache-dir", str(wheel_cache / "uv-cache")]
         args.extend(["--no-index", "--find-links", str(Path(wheelhouse).resolve())] if wheelhouse else ["--default-index", "https://pypi.org/simple"])
-        completed = subprocess.run(args, cwd=root, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=45)
-        if completed.returncode:
+        completed = subprocess.run(args, cwd=root, env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=45) if resolver_roots else None
+        if completed is not None and completed.returncode:
             conflicts = {}
             for candidate, raws in last_candidate_requirements.items():
                 for raw in raws:
@@ -314,7 +327,7 @@ def resolve_wheels(request, uv, output_dir, wheelhouse=None):
                                 edges.update([(candidate, str(req.specifier)), (owner, str(existing.specifier))])
             report = [{ 'dependency': name, 'requirements': [{ 'owner': owner, 'constraint': constraint } for owner, constraint in sorted(edges)] } for name, edges in sorted(conflicts.items())]
             raise ResolutionFailure(report, completed.stderr[-10000:])
-        resolved = tomllib.loads(lock.read_text(encoding="utf-8"))
+        resolved = tomllib.loads(lock.read_text(encoding="utf-8")) if completed is not None else {}
         selected = {}
         package_requirements = dict(metadata_requirements)
         for package in resolved.get("packages", []):

@@ -45,7 +45,8 @@ const attention = new Set<PluginUpdateStatus>([
   'diverged',
   'detached',
   'no-upstream',
-  'unreachable'
+  'unreachable',
+  'check-failed'
 ])
 
 const filteredItems = computed(() => {
@@ -60,9 +61,7 @@ const filteredItems = computed(() => {
   })
 })
 
-const updateableItems = computed(() =>
-  (inventory.value?.items ?? []).filter((item) => item.updateable)
-)
+const updateableItems = computed(() => (inventory.value?.items ?? []).filter(canBatchUpdate))
 const selectedCount = computed(
   () => updateableItems.value.filter((item) => selected.value.has(item.dirName)).length
 )
@@ -89,6 +88,49 @@ function installedRef(item: PluginUpdateItem): string | null {
 
 function targetRef(item: PluginUpdateItem): string | null {
   return item.sourceType === 'cnr' ? item.latestVersion : item.remoteCommit
+}
+
+function hasSourceOnlyPlan(item: PluginUpdateItem): boolean {
+  const plan = compatibilityPlans.value.get(item.dirName)
+  return !!(
+    plan &&
+    plan.installationId === props.installationId &&
+    plan.dirName === item.dirName &&
+    plan.sourceType === item.sourceType &&
+    plan.currentRef === installedRef(item) &&
+    plan.targetRef &&
+    plan.targetRef === targetRef(item) &&
+    /^[0-9a-f]{64}$/i.test(plan.planDigest) &&
+    plan.verdict === 'ready' &&
+    plan.executionMode === 'source-only' &&
+    !plan.packageChanges?.length &&
+    (!plan.expiresAt || Date.parse(plan.expiresAt) > Date.now())
+  )
+}
+
+function canBatchUpdate(item: PluginUpdateItem): boolean {
+  if (
+    !inventory.value?.mutable ||
+    !item.enabled ||
+    item.dirty ||
+    item.status !== 'update-available' ||
+    (item.sourceType !== 'cnr' && item.sourceType !== 'git')
+  )
+    return false
+  if (compatibilityPlans.value.has(item.dirName) && !hasSourceOnlyPlan(item)) return false
+  return item.updateable || (item.reasonCode === 'compiled-dependencies' && hasSourceOnlyPlan(item))
+}
+
+function pruneSelection(): void {
+  compatibilityPlans.value = new Map(
+    [...compatibilityPlans.value].filter(
+      ([, plan]) => !plan.expiresAt || Date.parse(plan.expiresAt) > Date.now()
+    )
+  )
+  const allowed = new Set(
+    (inventory.value?.items ?? []).filter(canBatchUpdate).map((item) => item.dirName)
+  )
+  selected.value = new Set([...selected.value].filter((id) => allowed.has(id)))
 }
 
 function sourceLabel(item: PluginUpdateItem): string {
@@ -121,12 +163,15 @@ function statusLabel(status: PluginUpdateStatus): string {
     detached: 'Detached HEAD',
     'no-upstream': 'No upstream',
     unreachable: 'Remote unavailable',
+    'check-failed': 'Local check failed',
     unsupported: 'Manual update'
   }
   return t(`pluginUpdates.status.${status}`, fallback[status])
 }
 
 function reasonText(item: PluginUpdateItem): string | null {
+  if (!item.updateable && canBatchUpdate(item))
+    return t('pluginUpdates.batchReady', 'Source update checked; can join the batch.')
   if (!item.reasonCode) return item.reason
   return t(`pluginUpdates.reason.${item.reasonCode}`, item.reason ?? '')
 }
@@ -147,10 +192,6 @@ async function load(refresh: boolean): Promise<void> {
     const next = await window.api.getPluginUpdates(installationId, refresh)
     if (seq !== loadSeq || installationId !== props.installationId) return
     inventory.value = next
-    const allowed = new Set(
-      next.items.filter((item) => item.updateable).map((item) => item.dirName)
-    )
-    selected.value = new Set([...selected.value].filter((id) => allowed.has(id)))
     const currentRefs = new Map(
       next.items.map((item) => [item.dirName, `${installedRef(item)}:${targetRef(item)}`])
     )
@@ -159,6 +200,7 @@ async function load(refresh: boolean): Promise<void> {
         ([dirName, plan]) => currentRefs.get(dirName) === `${plan.currentRef}:${plan.targetRef}`
       )
     )
+    pruneSelection()
   } catch (cause) {
     if (seq !== loadSeq || installationId !== props.installationId) return
     error.value = cause instanceof Error ? cause.message : String(cause)
@@ -174,7 +216,7 @@ async function loadLocalThenRefresh(): Promise<void> {
 }
 
 function toggle(item: PluginUpdateItem): void {
-  if (!item.updateable) return
+  if (!canBatchUpdate(item)) return
   const next = new Set(selected.value)
   if (next.has(item.dirName)) next.delete(item.dirName)
   else next.add(item.dirName)
@@ -227,6 +269,7 @@ async function checkCompatibility(item: PluginUpdateItem, refresh = true): Promi
     const plan = await window.api.getPluginCompatibilityPlan(installationId, item.dirName, refresh)
     if (installationId !== props.installationId) return
     compatibilityPlans.value = new Map(compatibilityPlans.value).set(item.dirName, plan)
+    pruneSelection()
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : String(cause)
   } finally {
@@ -244,9 +287,13 @@ function runCompatibleUpdate(item: PluginUpdateItem, plan: PluginCompatibilityPl
     plan.executionMode === 'wheel-update' &&
     !!plan.packageChanges?.length
   if ((plan.verdict !== 'ready' && !dependencies) || !plan.targetRef) return
-  const label = dependencies
-    ? t('pluginUpdates.compatibility.approveExecute', 'Confirm and update')
-    : t('pluginUpdates.compatibility.execute', 'Update source')
+  if (!dependencies) {
+    if (!canBatchUpdate(item)) return
+    selected.value = new Set([...selected.value, item.dirName])
+    compatibilityOpen.value = null
+    return
+  }
+  const label = t('pluginUpdates.compatibility.approveExecute', 'Confirm and update')
   const packageList = (plan.packageChanges ?? [])
     .map((change) => `${change.name}: ${change.from ?? '—'} → ${change.to}`)
     .join('\n')
@@ -268,12 +315,7 @@ function runCompatibleUpdate(item: PluginUpdateItem, plan: PluginCompatibilityPl
     },
     confirm: {
       title: t('pluginUpdates.compatibility.confirmTitle', 'Run compatibility update?'),
-      message: dependencies
-        ? `${t('pluginUpdates.compatibility.confirmPackages', { n: plan.packageChanges!.length })}\n\n${packageList}\n\n${t('pluginUpdates.compatibility.confirmRecovery')}`
-        : t(
-            'pluginUpdates.compatibility.confirmMessage',
-            'This will stop the ComfyUI instance, save a snapshot and local CNR backup, update the source through Manager v4 without changing dependencies, validate the result, and restore the source and Python packages if any step fails. ComfyUI will stay stopped; start it manually when you are ready.'
-          ),
+      message: `${t('pluginUpdates.compatibility.confirmPackages', { n: plan.packageChanges!.length })}\n\n${packageList}\n\n${t('pluginUpdates.compatibility.confirmRecovery')}`,
       confirmLabel: label
     }
   })
@@ -312,7 +354,36 @@ function notice(message: string): string {
 }
 
 function runUpdate(pluginIds: string[]): void {
+  const allowed = new Set(
+    (inventory.value?.items ?? []).filter(canBatchUpdate).map((item) => item.dirName)
+  )
+  const requestedCount = pluginIds.length
+  pluginIds = pluginIds.filter((id) => allowed.has(id))
+  if (pluginIds.length !== requestedCount) {
+    pruneSelection()
+    error.value = t(
+      'pluginUpdates.batchPlanChanged',
+      'A selected compatibility plan changed or expired. Check compatibility again.'
+    )
+    return
+  }
   if (pluginIds.length === 0) return
+  error.value = null
+  const approvals = pluginIds.flatMap((dirName) => {
+    const item = inventory.value!.items.find((item) => item.dirName === dirName)!
+    const plan = compatibilityPlans.value.get(dirName)
+    return plan && hasSourceOnlyPlan(item)
+      ? [
+          {
+            dirName,
+            planDigest: plan.planDigest,
+            ...(item.sourceType === 'cnr'
+              ? { targetVersion: plan.targetRef }
+              : { targetCommit: plan.targetRef })
+          }
+        ]
+      : []
+  })
   emit('run-action', {
     id: 'update-plugins',
     label: t('pluginUpdates.updateSelected', 'Update selected'),
@@ -320,12 +391,12 @@ function runUpdate(pluginIds: string[]): void {
     showProgress: true,
     progressTitle: t('pluginUpdates.updating', 'Updating plugins'),
     cancellable: false,
-    data: { pluginIds },
+    data: { pluginIds, ...(approvals.length ? { compatibilityPlans: approvals } : {}) },
     confirm: {
       title: t('pluginUpdates.confirmTitle', 'Update custom nodes?'),
       message: t(
         'pluginUpdates.confirmMessage',
-        'The instance will be stopped if needed. A snapshot is saved before Manager v4 updates the selected Git repositories and dependencies. ComfyUI will stay stopped; start it manually when you are ready.'
+        'Selected source updates share one Python environment backup. Each plugin is updated and verified; any failure restores the whole batch. Temporary backups are removed when complete. The instance remains stopped.'
       ),
       confirmLabel: t('pluginUpdates.updateNow', 'Update now')
     }
@@ -457,6 +528,14 @@ onUnmounted(() => unsubscribe?.())
       >
         {{ t('pluginUpdates.updateSelectedCount', { n: selectedCount }) }}
       </button>
+      <p class="plugin-updates__batch-note" data-testid="plugin-batch-backup-hint">
+        {{
+          t(
+            'pluginUpdates.batchBackupHint',
+            'Selected plugins share one Python environment backup. Any failure rolls back the entire batch.'
+          )
+        }}
+      </p>
     </footer>
 
     <p v-if="error" class="plugin-updates__message is-error">{{ error }}</p>
@@ -472,12 +551,13 @@ onUnmounted(() => unsubscribe?.())
         v-for="item in filteredItems"
         :key="item.dirName"
         class="plugin-row"
-        :class="{ 'is-selectable': item.updateable }"
+        :class="{ 'is-selectable': canBatchUpdate(item) }"
       >
         <input
           type="checkbox"
           :checked="selected.has(item.dirName)"
-          :disabled="!item.updateable"
+          :disabled="!canBatchUpdate(item)"
+          :data-testid="`plugin-select-${item.dirName}`"
           :aria-label="t('pluginUpdates.selectPlugin', { name: item.id })"
           @change="toggle(item)"
         />
@@ -514,7 +594,7 @@ onUnmounted(() => unsubscribe?.())
         </span>
         <span class="plugin-row__controls">
           <button
-            v-if="item.updateable"
+            v-if="item.updateable && canBatchUpdate(item)"
             type="button"
             class="plugin-row__update-button"
             :data-testid="`plugin-update-now-${item.dirName}`"
@@ -732,7 +812,7 @@ onUnmounted(() => unsubscribe?.())
                 </button>
                 <button
                   v-if="
-                    plan.verdict === 'ready' ||
+                    (plan.verdict === 'ready' && canBatchUpdate(item)) ||
                     (plan.verdict === 'approval-required' &&
                       plan.executionMode === 'wheel-update' &&
                       plan.packageChanges?.length)
@@ -746,7 +826,7 @@ onUnmounted(() => unsubscribe?.())
                   {{
                     plan.verdict === 'approval-required'
                       ? t('pluginUpdates.compatibility.approveExecute', 'Confirm and update')
-                      : t('pluginUpdates.compatibility.execute', 'Update source')
+                      : t('pluginUpdates.compatibility.addToBatch', 'Add to batch update')
                   }}
                 </button>
               </footer>
@@ -1269,7 +1349,8 @@ onUnmounted(() => unsubscribe?.())
 }
 .plugin-row__status[data-status='dirty'],
 .plugin-row__status[data-status='diverged'],
-.plugin-row__status[data-status='unreachable'] {
+.plugin-row__status[data-status='unreachable'],
+.plugin-row__status[data-status='check-failed'] {
   color: #f0a020;
 }
 .plugin-row__meta {
@@ -1309,6 +1390,12 @@ onUnmounted(() => unsubscribe?.())
   align-items: center;
   gap: 7px;
   font-size: 13px;
+}
+.plugin-updates__batch-note {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 .spin {
   animation: plugin-spin 0.9s linear infinite;

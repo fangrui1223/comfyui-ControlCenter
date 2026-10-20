@@ -129,6 +129,47 @@ afterEach(() => {
 })
 
 describe('buildPluginCompatibilityPlan', () => {
+  it('keeps unused optional dependency profiles out of a source update and reports them', () => {
+    const current = directory()
+    const target = directory()
+    for (const root of [current, target]) {
+      write(root, 'requirements.txt', '# Base nodes use the existing ComfyUI environment\n')
+      write(
+        root,
+        'requirements-prompt-rewriter.txt',
+        'transformers<5\nhuggingface-hub<1\npillow<11\ntorch>=99\n'
+      )
+      write(root, 'repair_dependency_list.txt', '--extra-index-url https://example.org\n')
+      write(root, 'pyproject.toml', '[project]\nrequires-python = ">=3.10"\ndependencies = []\n')
+    }
+
+    const result = plan(current, target)
+
+    expect(result.verdict).toBe('ready')
+    expect(result.executionMode).toBe('source-only')
+    expect(result.targetDependencies.map((dependency) => dependency.normalizedName)).toEqual([
+      'python'
+    ])
+    expect(result.dependencyDifferences).toEqual([])
+    expect(result.packageChanges).toEqual([])
+    expect(result.warnings.join('\n')).toContain('requirements-prompt-rewriter.txt')
+    expect(result.warnings.join('\n')).toContain('repair_dependency_list.txt')
+  })
+
+  it('still blocks a protected dependency in a profile explicitly included by the base file', () => {
+    const current = directory()
+    const target = directory()
+    write(current, 'requirements.txt', '')
+    write(target, 'requirements.txt', '-r requirements-feature.txt\n')
+    write(target, 'requirements-feature.txt', 'torch>=99\n')
+
+    const result = plan(current, target)
+
+    expect(result.verdict).toBe('blocked')
+    expect(result.blockers.join('\n')).toContain('torch>=99')
+    expect(result.warnings.join('\n')).not.toContain('Separate requirement files')
+  })
+
   it('allows a source-only update when compiled declarations and hooks are unchanged', () => {
     const current = directory()
     const target = directory()
@@ -248,6 +289,51 @@ describe('buildPluginCompatibilityPlan', () => {
     const first = plan(current, target)
     const second = plan(current, target, { item: item({ latestVersion: '1.2.0' }) })
 
+    expect(second.environmentFingerprint).not.toBe(first.environmentFingerprint)
+    expect(second.planDigest).not.toBe(first.planDigest)
+  })
+
+  it('retains freeze references separately from dependency metadata versions', () => {
+    const current = directory()
+    const target = directory()
+    const versions = {
+      torch: '2.8.0+cu128',
+      numpy: '2.2.6',
+      'llama-cpp-python': '0.3.47',
+      sageattention: '2.2.0+cu130torch2.10.0andhigher.post6'
+    }
+    const installedPackages = {
+      torch: versions.torch,
+      numpy: versions.numpy,
+      llama_cpp_python: 'file:///C:/cache/llama_cpp_python.whl#sha256=' + 'a'.repeat(64),
+      SageAttention: 'file:///D:/cache/sageattention.whl#sha256=' + 'b'.repeat(64)
+    }
+    const dependencyAnalysis = {
+      current: [],
+      target: [],
+      issues: [],
+      currentIssues: [],
+      installedPackages: versions,
+      installedRequirements: {},
+      markerEnvironment: {}
+    }
+
+    const first = plan(current, target, { installedPackages, dependencyAnalysis })
+    const second = plan(current, target, {
+      installedPackages: {
+        ...installedPackages,
+        llama_cpp_python: 'file:///C:/cache/llama_cpp_python.whl#sha256=' + 'c'.repeat(64)
+      },
+      dependencyAnalysis
+    })
+
+    expect(first.verdict).toBe('ready')
+    expect(first.installedPackages).toEqual({
+      torch: versions.torch,
+      numpy: versions.numpy,
+      'llama-cpp-python': installedPackages.llama_cpp_python,
+      sageattention: installedPackages.SageAttention
+    })
     expect(second.environmentFingerprint).not.toBe(first.environmentFingerprint)
     expect(second.planDigest).not.toBe(first.planDigest)
   })

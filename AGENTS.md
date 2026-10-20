@@ -28,3 +28,15 @@ This fork is developed as FR ComfyUI Control Center. Preserve these boundaries u
 - Never hard-code unverified future model requirements. Wan Animate, SCAIL2, MiniMax H3, Krea2, FLUX.2 Klein, future FLUX generations, and Qwen-family support must be expressed as updateable capability profiles with provenance and confidence.
 - Keep upstream changes easy to merge: isolate FR behavior behind small services/adapters and avoid unrelated formatting or broad rewrites of upstream files.
 - Do not push to the `upstream` remote. A separate user-owned `origin` is required before publishing FR work.
+
+## Recorded Git inspection regressions
+
+Before changing plugin dirty-state detection, Git config isolation, backend fallback, or installed Git helpers, read [the 2026-10-20 incident record](docs/incidents/2026-10-20-plugin-git-dirty-false-positives.md). The local [incident index](docs/incidents/README.md) is the entry point for subsequent repairs.
+
+- Ignore only confirmed **untracked** Python bytecode directly under `__pycache__`; tracked bytecode, source, configuration, staged changes, and other untracked files must retain update protection.
+- Preserve effective system/XDG/global/repository line-ending, attribute, and ignore semantics for local status. Network config hardening must stay separate from local worktree inspection. Do not fix a false positive by rewriting user/repository config or deleting files.
+- Read-only inspection includes `.git` metadata: do not repair directories or write `core.symlinks` while inspecting. Validate HEAD/index/config hashes remain unchanged.
+- Regress both system Git and pygit2, inherited SYSTEM/GLOBAL settings, genuine changes, and clean CRLF worktrees. Confirm the ordinary Git fixture is clean before testing the helper.
+- Verify the **installed helper with the instance's actual standalone Python**, not only the checkout's bootstrap interpreter. Record source, build, installer, installed helper, and installed `app.asar` status separately; a successful source build does not establish installed behavior.
+- Preserve exact backups and before/after hashes. Record consecutive patch dependencies and reverse rollback order. Add confirmed causes, verification scope, deployment gaps, and prevention lessons to the incident record; do not treat overlapping test counts as independent coverage.
+- For wheel planning, `uv pip compile --excludes` does not remove explicit roots from candidate resolution. Skip satisfied retained roots as resolver inputs while still checking installed metadata, selected extras, and the dependency closure; cover an empty wheelhouse and mixed satisfied/missing roots. See [the retained-dependency incident](docs/incidents/2026-10-20-retained-dependency-resolution.md).

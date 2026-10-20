@@ -24,6 +24,8 @@ export interface PluginDependencyAnalysis {
   installedPackages: Record<string, string>
   installedRequirements: Record<string, string[]>
   markerEnvironment: Record<string, string>
+  optionalRequirementFiles?: string[]
+  currentOptionalRequirementFiles?: string[]
 }
 
 export class DependencyPlanningError extends Error {

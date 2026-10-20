@@ -32,12 +32,179 @@ import {
   gitFetchAndCheckout,
   isPygit2AuthFailure,
   isForcePygit2,
-  isSystemGitAvailable
+  isSystemGitAvailable,
+  inspectGitUpdate
 } from './git'
 import * as telemetry from './telemetry'
 
 const mockedExecFile = vi.mocked(execFile)
 const mockedSpawn = vi.mocked(spawn)
+
+describe('plugin Git inspection fallback', () => {
+  const local = 'a'.repeat(40)
+  const remote = 'b'.repeat(40)
+  const helper = 'fixture-python'
+  beforeEach(() => {
+    vi.resetAllMocks()
+    resetPygit2State()
+    resetGitAvailableCache()
+    vi.stubEnv('COMFY_FORCE_PYGIT2', '')
+  })
+  afterEach(() => vi.unstubAllEnvs())
+
+  function nativeFixture(
+    options: {
+      helperError?: string
+      noGit?: boolean
+      statusError?: string
+      fetchError?: string
+      dirty?: boolean
+      statusOutput?: string
+    } = {}
+  ) {
+    mockExecFile((command, args, _opts, callback) => {
+      if (command === helper) {
+        callback(
+          Object.assign(new Error('helper failed'), { code: 1 }),
+          '',
+          options.helperError ?? 'path too long: workflows/example.json'
+        )
+        return
+      }
+      expect(command).toBe('git')
+      if (args[0] === '--version') {
+        callback(options.noGit ? new Error('Git not found') : null, 'git version 2.51.0', '')
+        return
+      }
+      expect(args.slice(0, 3)).toEqual(['--no-optional-locks', '-c', 'core.longpaths=true'])
+      const query = args.slice(3)
+      if (query[0] === 'fetch') {
+        callback(
+          options.fetchError ? Object.assign(new Error('fetch failed'), { code: 128 }) : null,
+          '',
+          options.fetchError ?? ''
+        )
+      } else if (query[0] === 'symbolic-ref') callback(null, 'main\n', '')
+      else if (query[0] === 'status')
+        callback(
+          options.statusError ? Object.assign(new Error('status failed'), { code: 128 }) : null,
+          options.statusOutput ?? (options.dirty === false ? '' : ' M workflows/user.json\0'),
+          options.statusError ?? ''
+        )
+      else if (query[0] === 'rev-list') callback(null, '0\t2\n', '')
+      else if (query.includes('@{upstream}')) callback(null, 'origin/main\n', '')
+      else if (query.join(' ') === 'rev-parse HEAD') callback(null, local + '\n', '')
+      else if (query.join(' ') === 'rev-parse origin/main') callback(null, remote + '\n', '')
+      else throw new Error(`Unexpected inspection command: ${query.join(' ')}`)
+    })
+  }
+
+  it.each(['path too long', 'Filename too long'])(
+    'falls back for %s and retains branch, revisions and local modifications',
+    async (message) => {
+      configurePygit2(helper, '/helper.py')
+      nativeFixture({ helperError: message })
+      expect(await inspectGitUpdate('/repo')).toEqual({
+        branch: 'main',
+        detached: false,
+        upstream: 'origin/main',
+        localCommit: local,
+        remoteCommit: remote,
+        ahead: 0,
+        behind: 2,
+        dirty: true,
+        fetchError: null
+      })
+      expect(
+        mockedExecFile.mock.calls.some((call) => (call[1] as string[]).includes('fetch'))
+      ).toBe(false)
+      expect(
+        mockedExecFile.mock.calls.some((call) => (call[1] as string[]).includes('config'))
+      ).toBe(false)
+    }
+  )
+
+  it('keeps a working pygit2 inspection as the preferred backend', async () => {
+    configurePygit2(helper, '/helper.py')
+    const inspected = { branch: 'main', dirty: true }
+    mockExecFile((_command, _args, _opts, callback) =>
+      callback(null, JSON.stringify(inspected), '')
+    )
+    expect(await inspectGitUpdate('/repo')).toEqual(inspected)
+    expect(mockedExecFile).toHaveBeenCalledOnce()
+  })
+
+  it('does not silently classify a failed system Git status check as clean', async () => {
+    nativeFixture({ statusError: 'unable to read worktree' })
+    await expect(inspectGitUpdate('/repo')).rejects.toThrow('unable to read worktree')
+  })
+
+  it.each([
+    ['root bytecode', '?? __pycache__/__init__.cpython-313.pyc\0', false],
+    ['nested bytecode', '?? nodes/__pycache__/upscale.cpython-313.opt-1.pyc\0', false],
+    ['tracked bytecode', ' M __pycache__/__init__.cpython-313.pyc\0', true],
+    ['staged bytecode', 'A  __pycache__/__init__.cpython-313.pyc\0', true],
+    ['deleted bytecode', ' D __pycache__/__init__.cpython-313.pyc\0', true],
+    ['source in cache directory', '?? __pycache__/custom_node.py\0', true],
+    ['bytecode outside cache directory', '?? custom_node.pyc\0', true],
+    ['cache lookalike', '?? my__pycache__/custom_node.pyc\0', true],
+    ['bare extension', '?? __pycache__/.pyc\0', true],
+    ['directory ending in pyc', '?? __pycache__/folder.pyc/config.json\0', true],
+    ['Unicode configuration', '?? 配置/设置.json\0', true],
+    ['newline in filename', '?? __pycache__/cache.pyc\nnotes.txt\0', true],
+    ['trailing newline in filename', '?? __pycache__/cache.pyc\n\0', true],
+    ['rename', 'R  renamed.py\0__pycache__/old.pyc\0', true],
+    [
+      'bytecode mixed with source changes',
+      '?? __pycache__/__init__.cpython-313.pyc\0 M nodes.py\0',
+      true
+    ]
+  ])('classifies %s without hiding real changes', async (_name, statusOutput, dirty) => {
+    nativeFixture({ statusOutput })
+    expect(await inspectGitUpdate('/repo')).toMatchObject({ dirty })
+    expect(
+      mockedExecFile.mock.calls.some((call) => {
+        const args = call[1] as string[]
+        return (
+          args.includes('status') && args.includes('-z') && args.includes('--untracked-files=all')
+        )
+      })
+    ).toBe(true)
+  })
+
+  it('retains a real remote fetch failure when local inspection succeeds', async () => {
+    configurePygit2(helper, '/helper.py')
+    nativeFixture({ fetchError: 'remote connection failed', dirty: false })
+    expect(await inspectGitUpdate('/repo', true)).toMatchObject({
+      dirty: false,
+      fetchError: 'remote connection failed',
+      branch: 'main',
+      localCommit: local
+    })
+  })
+
+  it('reports the local failure when system Git is unavailable', async () => {
+    configurePygit2(helper, '/helper.py')
+    nativeFixture({ noGit: true })
+    await expect(inspectGitUpdate('/repo')).rejects.toThrow('path too long')
+    expect(mockedExecFile).toHaveBeenCalledTimes(2)
+  })
+
+  it('respects the explicit force-pygit2 setting', async () => {
+    configurePygit2(helper, '/helper.py')
+    vi.stubEnv('COMFY_FORCE_PYGIT2', '1')
+    nativeFixture()
+    await expect(inspectGitUpdate('/repo')).rejects.toThrow('path too long')
+    expect(mockedExecFile).toHaveBeenCalledOnce()
+  })
+
+  it('does not hide other local helper failures behind a fallback', async () => {
+    configurePygit2(helper, '/helper.py')
+    nativeFixture({ helperError: 'repository is invalid' })
+    await expect(inspectGitUpdate('/repo')).rejects.toThrow('repository is invalid')
+    expect(mockedExecFile).toHaveBeenCalledOnce()
+  })
+})
 
 function mockExecFile(
   cb: (

@@ -289,6 +289,11 @@ export function buildPluginCompatibilityPlan(
   const nativeBinaryFiles = [...targetNative.keys()].sort()
   const blockers: string[] = []
   const warnings = analysis.issues.map((issue) => `Dependency analysis requires review: ${issue}`)
+  if (analysis.optionalRequirementFiles?.length) {
+    warnings.push(
+      `Separate requirement files are not selected for the base update; check them before using the corresponding feature or repair: ${analysis.optionalRequirementFiles.join(', ')}.`
+    )
+  }
 
   if (!input.managerPolicyAllowed) {
     blockers.push(input.managerPolicyReason ?? 'Manager v4 policy does not allow this update.')
@@ -339,9 +344,13 @@ export function buildPluginCompatibilityPlan(
 
   const currentRef = itemCurrentRef(input.item)
   const targetRef = itemTargetRef(input.item)
+  // The transaction compares pip freeze state, including local wheel/VCS origins.
+  // Metadata versions remain separate for requirement and resolver checks.
+  const installedPackages = normalizedInstalledPackages(input.installedPackages)
   const environmentFingerprint = digest({
     environment: input.environment,
-    installedPackages: analysis.installedPackages,
+    installedPackages,
+    installedVersions: analysis.installedPackages,
     installedRequirements: analysis.installedRequirements,
     markerEnvironment: analysis.markerEnvironment,
     currentRef,
@@ -396,7 +405,7 @@ export function buildPluginCompatibilityPlan(
     proposedChanges: dependencyDifferences,
     executionMode,
     packageChanges: [],
-    installedPackages: analysis.installedPackages
+    installedPackages
   }
 }
 

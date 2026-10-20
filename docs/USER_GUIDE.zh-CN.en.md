@@ -255,6 +255,9 @@ Never mix wheels in the live Python directory. Stage a complete runtime, pass ha
 
 ## 11. 故障处理 / Troubleshooting
 
+本机已确认的问题及修复集中在[本地故障记录索引](incidents/README.md)。插件页误报“有本地修改”时，
+先参照[Python 缓存与 Windows 换行排查记录](incidents/2026-10-20-plugin-git-dirty-false-positives.md)，保留文件现场再处理。
+
 | 现象 / Symptom | 首要检查 / First check | 正确处理 / Correct response |
 |---|---|---|
 | 安装器被 SmartScreen 阻止 | 数字签名与 SHA-256 / Signature and hash | 未签名内部包不要绕过；等待可信包 / Do not bypass for unsigned candidate |

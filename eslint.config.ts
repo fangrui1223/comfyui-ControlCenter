@@ -28,6 +28,7 @@ export default defineConfig([
       'result/**',
       'test-results/**',
       'playwright-report/**',
+      'artifacts/**',
       '.claude/**',
       '.worktrees/**',
       'packages/comfyui-desktop-bridge-types/*.d.ts'

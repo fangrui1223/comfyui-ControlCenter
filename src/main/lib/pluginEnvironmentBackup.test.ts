@@ -57,6 +57,23 @@ describe('offline plugin environment transactions', () => {
     await finishPluginTransaction(f.installation, f.journal, false)
     expect(fs.existsSync(f.marker)).toBe(false)
   })
+  it('reports source, environment removal, copy progress and durable restoration', async () => {
+    const f = await fixture()
+    await writePluginJournal(f.installation, f.journal, 'validating')
+    fs.writeFileSync(path.join(f.venv, 'package.py'), 'changed environment')
+    const progress = vi.fn()
+
+    expect(await restorePluginTransaction(f.installation, f.journal, () => {}, progress)).toEqual(
+      []
+    )
+
+    expect(progress).toHaveBeenCalledWith(-1, expect.stringContaining('plugin source'))
+    expect(progress).toHaveBeenCalledWith(-1, expect.stringContaining('Removing'))
+    expect(progress).toHaveBeenCalledWith(0, expect.stringContaining('Restoring Python'))
+    expect(progress).toHaveBeenLastCalledWith(100, expect.stringContaining('restored'))
+    expect(JSON.parse(fs.readFileSync(f.marker, 'utf8')).state).toBe('rolled-back')
+    expect(fs.readFileSync(path.join(f.venv, 'package.py'), 'utf8')).toBe('old environment')
+  })
   it.each(['applying-source', 'applying-dependencies', 'validating'] as const)(
     'recovers an interrupted %s transaction without network access',
     async (state) => {

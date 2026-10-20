@@ -58,6 +58,12 @@ def import_smoke(comfyui_dir: str, plugin_dir: str) -> dict[str, object]:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         prompt_server = PromptServer(loop, default_asset_manager())
+        # Normal startup initializes public APIs and built-in extras before
+        # external nodes. Plugins importing those modules otherwise encounter
+        # artificial circular imports (e.g. nodes_latent/nodes_post_processing).
+        loop.run_until_complete(
+            nodes.init_extra_nodes(init_custom_nodes=False, init_api_nodes=False)
+        )
         existing_nodes = set(nodes.NODE_CLASS_MAPPINGS)
         loaded = loop.run_until_complete(
             nodes.load_custom_node(

@@ -10,7 +10,7 @@ import {
   trackModelLinkChild,
   withProtectedModelLink
 } from './modelLinkGuard'
-import { extract } from './extract'
+import { exportGitPluginCheckout } from './gitPluginSource'
 import { removeQuarantine, codesignBinaries } from '../sources/standalone/macRepair'
 import * as telemetry from './telemetry'
 import { buildErrorFields } from '../../shared/errorEvent'
@@ -552,6 +552,22 @@ export interface GitUpdateInspection {
   fetchError: string | null
 }
 
+function hasPluginWorktreeChanges(status: string): boolean {
+  return status.split('\0').some((entry) => {
+    if (!entry) return false
+    // Only untracked bytecode is disposable; tracked caches and every other
+    // local file still require the normal update protection.
+    const parts = entry.slice(3).split('/')
+    const filename = parts.at(-1) ?? ''
+    return !(
+      entry.startsWith('?? ') &&
+      parts.at(-2) === '__pycache__' &&
+      filename.length > 4 &&
+      filename.endsWith('.pyc')
+    )
+  })
+}
+
 function runGitCapture(
   repoPath: string,
   args: string[],
@@ -560,7 +576,7 @@ function runGitCapture(
   return new Promise((resolve) => {
     execFile(
       'git',
-      args,
+      ['--no-optional-locks', '-c', 'core.longpaths=true', ...args],
       { cwd: repoPath, encoding: 'utf-8', windowsHide: true, timeout },
       (error, stdout, stderr) => {
         resolve({
@@ -592,9 +608,17 @@ export async function inspectGitUpdate(
       fetchRemote ? 30_000 : 10_000
     )
     if (result.exitCode !== 0) {
-      throw new Error(result.stderr.trim() || 'Unable to inspect Git repository')
+      const longPathFailure = /path (?:is )?too long|filename too long|name too long/i.test(
+        result.stderr
+      )
+      if (!longPathFailure || isForcePygit2() || !(await isSystemGitAvailable())) {
+        throw new Error(result.stderr.trim() || 'Unable to inspect Git repository')
+      }
+      // libgit2 can reject a Windows worktree path that system Git supports.
+      // Keep the fallback scoped to inspection; do not rewrite repo config.
+    } else {
+      return JSON.parse(result.stdout) as GitUpdateInspection
     }
-    return JSON.parse(result.stdout) as GitUpdateInspection
   }
 
   let fetchError: string | null = null
@@ -607,9 +631,11 @@ export async function inspectGitUpdate(
     runGitCapture(repoPath, ['rev-parse', 'HEAD']),
     runGitCapture(repoPath, ['symbolic-ref', '--short', '-q', 'HEAD']),
     runGitCapture(repoPath, ['rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}']),
-    runGitCapture(repoPath, ['status', '--porcelain', '--untracked-files=normal'])
+    runGitCapture(repoPath, ['status', '--porcelain=v1', '-z', '--untracked-files=all'])
   ])
   if (head.exitCode !== 0) throw new Error(head.stderr || 'Unable to resolve Git HEAD')
+  if (dirtyResult.exitCode !== 0)
+    throw new Error(dirtyResult.stderr || 'Unable to inspect the local Git working tree')
 
   const detached = branchResult.exitCode !== 0 || !branchResult.stdout
   const branch = detached ? null : branchResult.stdout
@@ -650,7 +676,7 @@ export async function inspectGitUpdate(
     remoteCommit,
     ahead,
     behind,
-    dirty: dirtyResult.exitCode === 0 && dirtyResult.stdout.length > 0,
+    dirty: hasPluginWorktreeChanges(dirtyResult.stdout),
     fetchError
   }
 }
@@ -694,6 +720,13 @@ export async function gitExportTree(
   const existing = await fs.promises.readdir(destination)
   if (existing.length > 0) throw new Error('Git export destination must be empty.')
 
+  // Manager v4 uses GitPython/system Git unless its pygit2 backend is forced
+  // or Git is unavailable. Match its checkout filters, not our fetch backend.
+  if (!isForcePygit2() && process.env.CM_USE_PYGIT2 !== '1' && (await isSystemGitAvailable())) {
+    await exportGitPluginCheckout(repoPath, ref, destination)
+    return
+  }
+
   if (isPygit2Configured()) {
     const result = await runPygit2(['export-tree', repoPath, ref, destination], 120_000)
     if (result.exitCode !== 0) {
@@ -702,23 +735,7 @@ export async function gitExportTree(
     return
   }
 
-  const archivePath = path.join(
-    path.dirname(destination),
-    `plugin-target-${process.pid}-${Date.now()}.zip`
-  )
-  try {
-    const result = await runGitCapture(
-      repoPath,
-      ['archive', '--format=zip', `--output=${archivePath}`, ref],
-      120_000
-    )
-    if (result.exitCode !== 0) {
-      throw new Error(result.stderr || 'Unable to export the target Git tree.')
-    }
-    await extract(archivePath, destination)
-  } finally {
-    await fs.promises.rm(archivePath, { force: true }).catch(() => {})
-  }
+  throw new Error('No Git checkout backend is available for compatibility inspection.')
 }
 
 /** Strip embedded credentials from git remote URLs. */

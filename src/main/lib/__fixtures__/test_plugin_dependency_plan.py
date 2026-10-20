@@ -65,6 +65,30 @@ class DependencyAnalysisTests(unittest.TestCase):
         self.assertTrue(result['target'][0]['satisfied'])
         self.assertEqual('nested.txt', result['target'][0]['sourceFile'])
 
+    def test_separate_optional_and_repair_profiles_are_not_base_dependencies(self):
+        for filename in ('requirements-prompt-rewriter.txt', 'requirements_dev.txt', 'repair_dependency_list.txt'):
+            (self.root / filename).write_text('transformers<5\ntorch>=99\n--extra-index-url https://example.org', encoding='utf-8')
+        (self.root / 'pyproject.toml').write_text('[project]\ndependencies=["base>=1"]\n[project.optional-dependencies]\nfeature=["torch>=99"]', encoding='utf-8')
+        result = self.analyze('# No extra base requirements', {'base': '1', 'transformers': '5.15.0'})
+        self.assertEqual(['base'], [r['normalizedName'] for r in result['target']])
+        self.assertEqual([], result['issues'])
+        self.assertEqual(['repair_dependency_list.txt', 'requirements-prompt-rewriter.txt', 'requirements_dev.txt'], result['optionalRequirementFiles'])
+
+    def test_explicitly_included_profile_remains_required(self):
+        (self.root / 'requirements-feature.txt').write_text('torch>=99\n-r nested.txt', encoding='utf-8')
+        (self.root / 'nested.txt').write_text('missing>=1', encoding='utf-8')
+        result = self.analyze('-r requirements-feature.txt', {'torch': '2.12.1+cu130'})
+        self.assertEqual(['torch', 'missing'], [r['normalizedName'] for r in result['target']])
+        self.assertTrue(all(not r['satisfied'] for r in result['target']))
+        self.assertEqual([], result['optionalRequirementFiles'])
+
+    def test_profile_without_base_requirements_is_still_a_separate_operation(self):
+        (self.root / 'requirements-feature.txt').write_text('missing>=1', encoding='utf-8')
+        result = plan.analyze({'currentRoot': str(self.root), 'targetRoot': str(self.root),
+                               'installedPackages': {}, 'installedRequirements': {}})
+        self.assertEqual([], result['target'])
+        self.assertEqual(['requirements-feature.txt'], result['optionalRequirementFiles'])
+
     def test_include_cannot_escape_plugin(self):
         result = self.analyze('-r ../outside.txt')
         self.assertIn('escaped', result['issues'][0])
@@ -110,6 +134,21 @@ class WheelResolutionTests(unittest.TestCase):
     def test_satisfied_existing_packages_produce_no_install_plan(self):
         result = self.resolve(['existing>=1'], {'existing': '2'})
         self.assertEqual([], result['changes'])
+        self.assertEqual({'existing': '2'}, result['expectedPackages'])
+
+    def test_satisfied_roots_do_not_need_index_candidates_in_a_mixed_plan(self):
+        wheel(self.wheels, 'newpkg', '1')
+        result = self.resolve(['existing>=1', 'newpkg==1'], {'existing': '2'})
+        self.assertEqual(['newpkg'], [c['name'] for c in result['changes']])
+        self.assertEqual({'existing': '2', 'newpkg': '1'}, result['expectedPackages'])
+
+    def test_retained_root_still_resolves_missing_selected_extra(self):
+        wheel(self.wheels, 'childpkg', '2')
+        result = self.resolve(['existing[feature]>=1'], {'existing': '2'},
+                              {'existing': ['childpkg>=2; extra == "feature"',
+                                            'unused>=1; extra == "other"']})
+        self.assertEqual(['childpkg'], [c['name'] for c in result['changes']])
+        self.assertEqual({'existing': '2', 'childpkg': '2'}, result['expectedPackages'])
 
     def test_protected_change_is_blocked_without_fetching_cuda_wheel(self):
         wheel(self.wheels, 'rootpkg', '2', ['torch>=3'])
